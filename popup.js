@@ -21,17 +21,15 @@ async function init() {
   const enabled = await getShowExtensionEnabled();
   checkbox.checked = enabled;
 
-  checkbox.addEventListener("change", async () => {
-    chrome.storage.local.set({ [SHOW_EXTENSION_KEY]: checkbox.checked });
+  checkbox.addEventListener("change", () => {
+    chrome.storage.local.set({ [SHOW_EXTENSION_KEY]: checkbox.checked }, async () => {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const activeTab = tabs[0];
+      if (!activeTab?.id) return;
 
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    const activeTab = tabs[0];
-    if (!activeTab?.id) return;
-
-    // Reload Gmail so the content script state and UI are refreshed immediately.
-    if ((activeTab.url || "").startsWith("https://mail.google.com/")) {
+      // Force refresh so the content script re-reads visibility state immediately.
       chrome.tabs.reload(activeTab.id);
-    }
+    });
   });
 }
 
