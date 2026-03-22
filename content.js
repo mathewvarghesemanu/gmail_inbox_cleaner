@@ -8,7 +8,10 @@
     lockedSender: "",
     lockedQuery: "",
     selectedConversationsText: "",
-    working: false
+    shortcut: null,
+    working: false,
+    batchExecuting: false,
+    stopExecutionRequested: false
   };
   const LABELS = {
     UNSUBSCRIBE_OPEN_EMAIL: "Unsubscribe Open Email",
@@ -17,11 +20,30 @@
     ARCHIVE_ALL_PAGES: "Archive Listed Emails in All Pages",
     GO_TO_INBOX: "Go to Inbox"
   };
+  const ACTION_BUTTON_IDS = {
+    UNSUBSCRIBE: "gc-unsub",
+    SELECT_LIKE_OPEN: "gc-like-open",
+    ARCHIVE_THIS_PAGE: "gc-archive",
+    ARCHIVE_ALL_PAGES: "gc-archive-rec",
+    GO_TO_INBOX: "gc-inbox"
+  };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
+  const EXECUTE_SELECTED_SHORTCUT_KEY = "executeSelectedShortcut";
+  const DEFAULT_SHORTCUT = {
+    enabled: true,
+    key: "E",
+    alt: true,
+    shift: true,
+    ctrl: false,
+    meta: false
+  };
+  state.shortcut = { ...DEFAULT_SHORTCUT };
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   let successTimer = null;
-  let toastTimer = null;
+  let proceedConfirmationResolver = null;
+  const toastQueue = [];
+  let toastQueueActive = false;
 
   function waitForSelector(selector, timeout = 7000) {
     return new Promise((resolve) => {
@@ -60,16 +82,83 @@
     }, 2200);
   }
 
-  function showToast(message) {
+  async function flushToastQueue() {
+    if (toastQueueActive) return;
+    toastQueueActive = true;
+
+    const toast = document.getElementById("gc-toast");
+    if (!toast) {
+      toastQueue.length = 0;
+      toastQueueActive = false;
+      return;
+    }
+
+    while (toastQueue.length > 0) {
+      const next = toastQueue.shift();
+      if (!next) continue;
+
+      toast.textContent = next.message;
+      toast.classList.add("gc-toast-visible");
+      await sleep(next.durationMs);
+      toast.classList.remove("gc-toast-visible");
+      await sleep(140);
+    }
+
+    toastQueueActive = false;
+  }
+
+  function showToast(message, options = {}) {
+    const durationMs = options.durationMs || 2400;
     const toast = document.getElementById("gc-toast");
     if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add("gc-toast-visible");
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      toast.classList.remove("gc-toast-visible");
-      toastTimer = null;
-    }, 4000);
+    toastQueue.push({ message, durationMs });
+    void flushToastQueue();
+  }
+
+  function formatElapsedMs(ms) {
+    if (ms < 1000) return `${Math.max(1, Math.round(ms))}ms`;
+    const seconds = ms / 1000;
+    return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
+  }
+
+  async function runWithElapsedToast(label, runner) {
+    const start = performance.now();
+    try {
+      await runner();
+    } finally {
+      const elapsed = performance.now() - start;
+      showToast(`${label}: ${formatElapsedMs(elapsed)} elapsed`);
+    }
+  }
+
+  function hideProceedConfirmation() {
+    const box = document.getElementById("gc-confirm");
+    if (!box) return;
+    box.classList.remove("gc-confirm-visible");
+  }
+
+  function resolveProceedConfirmation(result) {
+    const resolver = proceedConfirmationResolver;
+    proceedConfirmationResolver = null;
+    hideProceedConfirmation();
+    if (resolver) resolver(result);
+  }
+
+  function askProceedConfirmation(message) {
+    const box = document.getElementById("gc-confirm");
+    const messageEl = document.getElementById("gc-confirm-message");
+    if (!box || !messageEl) return Promise.resolve(false);
+
+    if (proceedConfirmationResolver) {
+      resolveProceedConfirmation(false);
+    }
+
+    messageEl.textContent = message;
+    box.classList.add("gc-confirm-visible");
+
+    return new Promise((resolve) => {
+      proceedConfirmationResolver = resolve;
+    });
   }
 
   function setWorking(next) {
@@ -77,6 +166,188 @@
     document.querySelectorAll(".gc-btn").forEach((btn) => {
       btn.disabled = next;
     });
+    document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
+      checkbox.disabled = next;
+    });
+    const workingEl = document.getElementById("gc-working");
+    if (workingEl) {
+      workingEl.classList.toggle("gc-working-visible", next);
+      workingEl.setAttribute("aria-hidden", next ? "false" : "true");
+    }
+    updateExecuteSelectedState();
+  }
+
+  function normalizeShortcutConfig(raw) {
+    const candidate = raw || {};
+    const key = String(candidate.key || DEFAULT_SHORTCUT.key)
+      .trim()
+      .slice(0, 1)
+      .toUpperCase();
+
+    return {
+      enabled: candidate.enabled !== false,
+      key: key || DEFAULT_SHORTCUT.key,
+      alt: candidate.alt !== false,
+      shift: candidate.shift !== false,
+      ctrl: candidate.ctrl === true,
+      meta: candidate.meta === true
+    };
+  }
+
+  function loadShortcutConfig() {
+    chrome.storage.local.get([EXECUTE_SELECTED_SHORTCUT_KEY], (result) => {
+      if (chrome.runtime.lastError) {
+        state.shortcut = { ...DEFAULT_SHORTCUT };
+        return;
+      }
+      state.shortcut = normalizeShortcutConfig(result[EXECUTE_SELECTED_SHORTCUT_KEY]);
+    });
+  }
+
+  function isEditableTarget(target) {
+    if (!target) return false;
+    const tag = (target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    if (target.isContentEditable) return true;
+    return Boolean(target.closest?.("[contenteditable='true']"));
+  }
+
+  function matchesShortcut(event) {
+    const shortcut = state.shortcut || DEFAULT_SHORTCUT;
+    if (!shortcut.enabled) return false;
+    if ((event.key || "").toUpperCase() !== shortcut.key) return false;
+    if (event.altKey !== shortcut.alt) return false;
+    if (event.shiftKey !== shortcut.shift) return false;
+    if (event.ctrlKey !== shortcut.ctrl) return false;
+    if (event.metaKey !== shortcut.meta) return false;
+    return true;
+  }
+
+  function onGlobalKeydown(event) {
+    if (!matchesShortcut(event)) return;
+    if (isEditableTarget(event.target)) return;
+    if (state.working || state.batchExecuting) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    void runWithElapsedToast("Execute Selected", async () => {
+      await executeSelectedActions();
+    });
+  }
+
+  function getActionHandler(buttonId) {
+    const handlers = {
+      [ACTION_BUTTON_IDS.UNSUBSCRIBE]: actionUnsubscribe,
+      [ACTION_BUTTON_IDS.SELECT_LIKE_OPEN]: actionSelectLikeOpen,
+      [ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE]: actionArchiveAll,
+      [ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES]: actionArchiveRecursive,
+      [ACTION_BUTTON_IDS.GO_TO_INBOX]: actionGoInbox
+    };
+    return handlers[buttonId] || null;
+  }
+
+  async function runActionByButtonId(buttonId, options = {}) {
+    const handler = getActionHandler(buttonId);
+    if (!handler) return;
+    await handler(options);
+  }
+
+  function getSelectedActionIds() {
+    return [...document.querySelectorAll(".gc-action-checkbox:checked")]
+      .map((checkbox) => checkbox.getAttribute("data-action-id") || "")
+      .filter(Boolean);
+  }
+
+  function updateExecuteSelectedState() {
+    const executeButton = document.getElementById("gc-execute-selected");
+    const stopButton = document.getElementById("gc-stop-execution");
+    if (!executeButton) return;
+
+    const hasSelections = getSelectedActionIds().length > 0;
+    executeButton.dataset.ready = hasSelections ? "true" : "false";
+    executeButton.disabled = state.working || !hasSelections;
+    if (stopButton) {
+      stopButton.disabled = !state.batchExecuting;
+    }
+  }
+
+  function requestStopExecution() {
+    if (!state.batchExecuting) return;
+    state.stopExecutionRequested = true;
+    setLog("Stop requested. Finishing current step...");
+  }
+
+  function shouldStopExecution() {
+    return state.batchExecuting && state.stopExecutionRequested;
+  }
+
+  async function executeSelectedActions() {
+    if (state.working || state.batchExecuting) return;
+    const selectedActionIds = getSelectedActionIds();
+    if (!selectedActionIds.length) {
+      updateExecuteSelectedState();
+      return;
+    }
+
+    state.batchExecuting = true;
+    state.stopExecutionRequested = false;
+    setWorking(true);
+    try {
+      for (let index = 0; index < selectedActionIds.length; index += 1) {
+        if (shouldStopExecution()) break;
+        const actionId = selectedActionIds[index];
+        const nextActionId = selectedActionIds[index + 1] || "";
+        await runActionByButtonId(actionId, { skipWorking: true });
+        if (shouldStopExecution()) break;
+        if (index < selectedActionIds.length - 1 && shouldWaitBetweenActions(actionId, nextActionId)) {
+          await waitForListToLoadForBatchStep();
+        }
+      }
+      if (shouldStopExecution()) {
+        setLog("Execution stopped.");
+        showToast("Execution stopped");
+      }
+    } finally {
+      state.batchExecuting = false;
+      state.stopExecutionRequested = false;
+      setWorking(false);
+    }
+  }
+
+  function shouldWaitBetweenActions(currentActionId, nextActionId) {
+    void currentActionId;
+    // If the next step is navigating to Inbox, waiting for list rows is unnecessary
+    // and can add long delays when archive emptied the current filtered results.
+    if (nextActionId === ACTION_BUTTON_IDS.GO_TO_INBOX) return false;
+    return true;
+  }
+
+  async function waitForListToLoadForBatchStep(timeout = 6000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (shouldStopExecution()) return false;
+      await dismissUnsubscribeDialogs(1);
+      const rows = getThreadRows();
+      if (rows.length > 0) {
+        await sleep(120);
+        return true;
+      }
+
+      const hasVisibleToolbar = !!getMailboxToolbar();
+      if (hasVisibleToolbar) {
+        await waitForSelector("tr.zA", 1200);
+        if (getThreadRows().length > 0) {
+          await sleep(120);
+          return true;
+        }
+      }
+
+      await sleep(120);
+    }
+
+    // Keep flow resilient if Gmail is slow or there are simply no rows.
+    await sleep(200);
+    return false;
   }
 
   function setExtensionVisibility(enabled) {
@@ -594,6 +865,31 @@
     return false;
   }
 
+  function hasAnySelectedConversationRow() {
+    const rows = getThreadRows();
+    if (!rows.length) return false;
+
+    return rows.some((row) => {
+      if ((row.getAttribute("aria-selected") || "").toLowerCase() === "true") return true;
+      const rowCheckbox = row.querySelector("[role='checkbox']");
+      return (rowCheckbox?.getAttribute("aria-checked") || "").toLowerCase() === "true";
+    });
+  }
+
+  async function waitForSelectionToSettle(timeout = 5000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const toolbar = getMailboxToolbar() || document.querySelector("div[gh='tl']") || document;
+      const masterChecked = isMasterChecked(toolbar);
+      if (masterChecked && hasAnySelectedConversationRow()) {
+        await sleep(180);
+        return true;
+      }
+      await sleep(150);
+    }
+    return false;
+  }
+
   async function archiveSelected() {
     const toolbar = getMailboxToolbar() || document;
     const archiveControl = [...toolbar.querySelectorAll("div[role='button'], button, span[role='button']")].find(
@@ -811,6 +1107,52 @@
     return null;
   }
 
+  function findUnsubscribeFollowupDismissButton() {
+    const dialogs = [
+      ...document.querySelectorAll("div[role='alertdialog'], div[role='dialog']")
+    ].filter((dialog) => isVisible(dialog));
+
+    for (const dialog of dialogs) {
+      const buttons = [...dialog.querySelectorAll("button, [role='button'], [role='link'], a, span")];
+      const match = buttons.find((btn) => {
+        if (!isVisible(btn)) return false;
+        const signal = getUnsubscribeSignal(btn);
+        if (!signal || signal.includes("unsubscribe")) return false;
+        return (
+          signal.includes("done") ||
+          signal.includes("ok") ||
+          signal.includes("got it") ||
+          signal.includes("close") ||
+          signal.includes("dismiss") ||
+          signal.includes("cancel")
+        );
+      });
+      if (match) return match;
+    }
+
+    return null;
+  }
+
+  async function dismissUnsubscribeDialogs(maxRounds = 3) {
+    for (let i = 0; i < maxRounds; i += 1) {
+      const confirm = findUnsubscribeConfirmButton();
+      if (confirm) {
+        robustClick(confirm);
+        await sleep(120);
+        continue;
+      }
+
+      const dismiss = findUnsubscribeFollowupDismissButton();
+      if (dismiss) {
+        robustClick(dismiss);
+        await sleep(120);
+        continue;
+      }
+
+      break;
+    }
+  }
+
   async function waitForUnsubscribeConfirm(timeout = 5000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
@@ -819,6 +1161,19 @@
       await sleep(150);
     }
     return null;
+  }
+
+  function hasVisibleUnsubscribeDialog() {
+    return Boolean(findUnsubscribeConfirmButton() || findUnsubscribeFollowupDismissButton());
+  }
+
+  async function waitForUnsubscribeDialogToClear(timeout = 1800) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (!hasVisibleUnsubscribeDialog()) return true;
+      await sleep(100);
+    }
+    return !hasVisibleUnsubscribeDialog();
   }
 
   function robustClick(el) {
@@ -873,20 +1228,20 @@
     }
 
     robustClick(btn);
-    await sleep(900);
-
-    const confirm = await waitForUnsubscribeConfirm(5000);
+    const confirm = await waitForUnsubscribeConfirm(1800);
     if (confirm) {
       robustClick(confirm);
-      await sleep(500);
+      await waitForUnsubscribeDialogToClear(1800);
       return "Clicked unsubscribe and confirmed popup.";
     }
 
+    await dismissUnsubscribeDialogs(1);
     return "Clicked unsubscribe. Confirm popup was not detected.";
   }
 
-  async function actionSelectLikeOpen() {
-    setWorking(true);
+  async function actionSelectLikeOpen(options = {}) {
+    const manageWorking = !options.skipWorking;
+    if (manageWorking) setWorking(true);
     try {
       setLog("Finding sender from open email...");
       const sender = findOpenEmailSender();
@@ -904,7 +1259,7 @@
     } catch (error) {
       setLog(error.message || "Could not select similar emails.");
     } finally {
-      setWorking(false);
+      if (manageWorking) setWorking(false);
     }
   }
 
@@ -917,13 +1272,15 @@
     validateLockedArchiveContext();
   }
 
-  async function actionArchiveAll() {
-    setWorking(true);
+  async function actionArchiveAll(options = {}) {
+    const manageWorking = !options.skipWorking;
+    if (manageWorking) setWorking(true);
     try {
       await ensureQueryReady();
       validateLockedArchiveContext();
       setLog("Selecting conversations on current page...");
       await selectAllMatchingSearch({ includeAllInSearch: false });
+      await waitForSelectionToSettle();
       setLog(`${state.selectedConversationsText} Archiving current page...`);
       await archiveSelected();
       setLog("Archive action sent for current page.");
@@ -932,14 +1289,19 @@
     } catch (error) {
       setLog(error.message || "Archive failed.");
     } finally {
-      setWorking(false);
+      if (manageWorking) setWorking(false);
     }
   }
 
-  async function actionArchiveRecursive() {
-    setWorking(true);
+  async function actionArchiveRecursive(options = {}) {
+    const manageWorking = !options.skipWorking;
+    if (manageWorking) setWorking(true);
     try {
       await ensureQueryReady();
+      await waitForListToLoadForBatchStep(20000);
+      if (!getThreadRows().length) {
+        throw new Error("No emails found in the current filtered list to archive.");
+      }
 
       let cycles = 0;
       let unchangedCycles = 0;
@@ -947,6 +1309,11 @@
       const maxUnchangedCycles = 4;
 
       while (cycles < maxCycles) {
+        if (shouldStopExecution()) {
+          setLog(`Stopped after ${cycles} cycle(s).`);
+          showToast("Execution stopped");
+          return;
+        }
         validateLockedArchiveContext();
         const rows = getThreadRows();
         if (!rows.length) break;
@@ -954,6 +1321,7 @@
         const beforeFingerprint = getFirstRowFingerprint();
         setLog(`Cycle ${cycles + 1}: selecting listed emails...`);
         await selectAllMatchingSearch({ includeAllInSearch: false });
+        await waitForSelectionToSettle();
         setLog(`Cycle ${cycles + 1}: archiving...`);
         await archiveSelected();
         await sleep(2000);
@@ -980,18 +1348,23 @@
         }
       }
 
+      if (cycles === 0) {
+        setLog("No emails found to archive.");
+        return;
+      }
       setLog(`Archive loop completed after ${cycles} cycle(s).`);
       flashSuccess("Archived");
       showToast("Archive complete");
     } catch (error) {
       setLog(error.message || "Recursive archive failed.");
     } finally {
-      setWorking(false);
+      if (manageWorking) setWorking(false);
     }
   }
 
-  async function actionUnsubscribe() {
-    setWorking(true);
+  async function actionUnsubscribe(options = {}) {
+    const manageWorking = !options.skipWorking;
+    if (manageWorking) setWorking(true);
     try {
       setLog("Looking for unsubscribe in open email...");
       const sender = findOpenEmailSender();
@@ -1002,17 +1375,37 @@
         return;
       }
       const result = await clickUnsubscribeInOpenEmail();
+      await dismissUnsubscribeDialogs();
       setLog(result);
       showToast("Unsubscribe complete");
     } catch (error) {
-      setLog(error.message || "Unsubscribe failed.");
+      const message = error.message || "Unsubscribe failed.";
+      if (message.includes("No unsubscribe button/link found")) {
+        const proceed = await askProceedConfirmation(
+          "No unsubscribe button/link found in this email. Proceed with remaining selected actions?"
+        );
+        if (proceed) {
+          setLog("No unsubscribe button found. Proceeding to next action.");
+          showToast("Proceeding without unsubscribe");
+          return;
+        }
+
+        setLog("Execution stopped by user (unsubscribe confirmation).");
+        if (state.batchExecuting) {
+          state.stopExecutionRequested = true;
+          showToast("Execution stopped");
+        }
+        return;
+      }
+      setLog(message);
     } finally {
-      setWorking(false);
+      if (manageWorking) setWorking(false);
     }
   }
 
-  async function actionGoInbox() {
-    setWorking(true);
+  async function actionGoInbox(options = {}) {
+    const manageWorking = !options.skipWorking;
+    if (manageWorking) setWorking(true);
     try {
       window.location.hash = "#inbox";
       await waitForSelector("tr.zA", 8000);
@@ -1026,7 +1419,7 @@
       setLog("Moved to Inbox.");
       showToast("Moved to Inbox");
     } finally {
-      setWorking(false);
+      if (manageWorking) setWorking(false);
     }
   }
 
@@ -1050,20 +1443,48 @@
         <p id="gc-title">Gmail Unsubscriber Ondevice</p>
         <p id="gc-subtitle">Use Gmail-native actions</p>
       </div>
+      <div id="gc-working" aria-live="polite" aria-hidden="true">
+        <span class="gc-working-spinner" aria-hidden="true"></span>
+        <span class="gc-working-text">Working...</span>
+      </div>
       <div id="gc-body">
         <div class="gc-section gc-section-prepare">
           <p class="gc-section-title">Prepare</p>
-          <button class="gc-btn" id="gc-unsub">${escapeHtml(LABELS.UNSUBSCRIBE_OPEN_EMAIL)}</button>
-          <button class="gc-btn" id="gc-like-open">${escapeHtml(LABELS.SELECT_LIKE_OPEN_EMAIL)}</button>
+          <div class="gc-action-row">
+            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.UNSUBSCRIBE}" aria-label="Select ${escapeHtml(LABELS.UNSUBSCRIBE_OPEN_EMAIL)}" />
+            <button class="gc-btn" id="${ACTION_BUTTON_IDS.UNSUBSCRIBE}">${escapeHtml(LABELS.UNSUBSCRIBE_OPEN_EMAIL)}</button>
+          </div>
+          <div class="gc-action-row">
+            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.SELECT_LIKE_OPEN}" aria-label="Select ${escapeHtml(LABELS.SELECT_LIKE_OPEN_EMAIL)}" />
+            <button class="gc-btn" id="${ACTION_BUTTON_IDS.SELECT_LIKE_OPEN}">${escapeHtml(LABELS.SELECT_LIKE_OPEN_EMAIL)}</button>
+          </div>
         </div>
         <div class="gc-section gc-section-archive">
           <p class="gc-section-title">Archive</p>
-          <button class="gc-btn" id="gc-archive">${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}</button>
-          <button class="gc-btn" id="gc-archive-rec">${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}</button>
+          <div class="gc-action-row">
+            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}" />
+            <button class="gc-btn" id="${ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE}">${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}</button>
+          </div>
+          <div class="gc-action-row">
+            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}" />
+            <button class="gc-btn" id="${ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES}">${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}</button>
+          </div>
         </div>
         <div class="gc-section gc-section-inbox">
           <p class="gc-section-title">Inbox</p>
-          <button class="gc-btn" id="gc-inbox">${escapeHtml(LABELS.GO_TO_INBOX)}</button>
+          <div class="gc-action-row">
+            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.GO_TO_INBOX}" aria-label="Select ${escapeHtml(LABELS.GO_TO_INBOX)}" />
+            <button class="gc-btn" id="${ACTION_BUTTON_IDS.GO_TO_INBOX}">${escapeHtml(LABELS.GO_TO_INBOX)}</button>
+          </div>
+        </div>
+        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled>Execute Selected</button>
+        <button class="gc-btn gc-btn-stop" id="gc-stop-execution" disabled>Stop Execution</button>
+      </div>
+      <div id="gc-confirm" role="alert" aria-live="assertive">
+        <p id="gc-confirm-message"></p>
+        <div id="gc-confirm-actions">
+          <button type="button" id="gc-confirm-proceed">Proceed</button>
+          <button type="button" id="gc-confirm-stop">Stop</button>
         </div>
       </div>
       <div id="gc-success" aria-live="polite">
@@ -1080,11 +1501,35 @@
       root.classList.toggle("gc-hidden");
     });
 
-    document.getElementById("gc-inbox")?.addEventListener("click", actionGoInbox);
-    document.getElementById("gc-unsub")?.addEventListener("click", actionUnsubscribe);
-    document.getElementById("gc-like-open")?.addEventListener("click", actionSelectLikeOpen);
-    document.getElementById("gc-archive")?.addEventListener("click", actionArchiveAll);
-    document.getElementById("gc-archive-rec")?.addEventListener("click", actionArchiveRecursive);
+    Object.values(ACTION_BUTTON_IDS).forEach((buttonId) => {
+      document.getElementById(buttonId)?.addEventListener("click", () => {
+        const label = document.getElementById(buttonId)?.textContent?.trim() || "Action";
+        void runWithElapsedToast(label, async () => {
+          await runActionByButtonId(buttonId);
+        });
+      });
+    });
+
+    document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
+      checkbox.addEventListener("change", updateExecuteSelectedState);
+    });
+    document.getElementById("gc-execute-selected")?.addEventListener("click", () => {
+      void runWithElapsedToast("Execute Selected", async () => {
+        await executeSelectedActions();
+      });
+    });
+    document.getElementById("gc-stop-execution")?.addEventListener("click", () => {
+      void runWithElapsedToast("Stop Execution", async () => {
+        requestStopExecution();
+      });
+    });
+    document.getElementById("gc-confirm-proceed")?.addEventListener("click", () => {
+      resolveProceedConfirmation(true);
+    });
+    document.getElementById("gc-confirm-stop")?.addEventListener("click", () => {
+      resolveProceedConfirmation(false);
+    });
+    updateExecuteSelectedState();
 
     setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
     syncExtensionVisibilityFromStorage();
@@ -1093,6 +1538,7 @@
   function boot() {
     if (!document.body) return;
     mountSidebar();
+    loadShortcutConfig();
   }
 
   boot();
@@ -1113,9 +1559,15 @@
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local" || !changes[SHOW_EXTENSION_KEY]) return;
-    setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
+    if (areaName !== "local") return;
+    if (changes[SHOW_EXTENSION_KEY]) {
+      setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
+    }
+    if (changes[EXECUTE_SELECTED_SHORTCUT_KEY]) {
+      state.shortcut = normalizeShortcutConfig(changes[EXECUTE_SELECTED_SHORTCUT_KEY].newValue);
+    }
   });
 
   window.addEventListener("hashchange", mountSidebar);
+  document.addEventListener("keydown", onGlobalKeydown, true);
 })();
