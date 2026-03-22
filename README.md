@@ -1,4 +1,4 @@
-# Gmail Sidebar Cleaner
+# Gmail Unsubscriber Ondevice
 
 A Chrome extension that adds a lightweight sidebar inside Gmail with quick actions to unsubscribe, select similar emails, and archive in bulk.
 
