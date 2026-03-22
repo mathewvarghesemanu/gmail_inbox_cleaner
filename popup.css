@@ -1,0 +1,67 @@
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-width: 280px;
+  font-family: "Google Sans", "Segoe UI", Arial, sans-serif;
+  background: #f8fbff;
+  color: #202124;
+}
+
+.popup-root {
+  padding: 14px;
+}
+
+.popup-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.toggle-row input {
+  margin: 0;
+}
+
+.about {
+  margin-top: 12px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.about h2 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.about p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.about p:last-child {
+  margin-bottom: 0;
+}
+
+.support-link {
+  font-size: 11px;
+  color: #1967d2;
+  text-decoration: underline;
+}

@@ -10,6 +10,14 @@
     selectedConversationsText: "",
     working: false
   };
+  const LABELS = {
+    UNSUBSCRIBE_OPEN_EMAIL: "Unsubscribe Open Email",
+    SELECT_LIKE_OPEN_EMAIL: "Select All Emails Like Open Email",
+    ARCHIVE_THIS_PAGE: "Archive Listed Emails in This Page",
+    ARCHIVE_ALL_PAGES: "Archive Listed Emails in All Pages",
+    GO_TO_INBOX: "Go to Inbox"
+  };
+  const SHOW_EXTENSION_KEY = "showExtensionEnabled";
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   let successTimer = null;
@@ -68,6 +76,27 @@
     state.working = next;
     document.querySelectorAll(".gc-btn").forEach((btn) => {
       btn.disabled = next;
+    });
+  }
+
+  function setExtensionVisibility(enabled) {
+    const toggle = document.getElementById("gc-toggle");
+    const root = document.getElementById("gc-root");
+    if (toggle) toggle.style.display = enabled ? "" : "none";
+    if (root) {
+      if (!enabled) root.classList.add("gc-hidden");
+      root.style.display = enabled ? "" : "none";
+    }
+  }
+
+  function syncExtensionVisibilityFromStorage() {
+    chrome.storage.local.get([SHOW_EXTENSION_KEY], (result) => {
+      if (chrome.runtime.lastError) {
+        setExtensionVisibility(true);
+        return;
+      }
+
+      setExtensionVisibility(result[SHOW_EXTENSION_KEY] !== false);
     });
   }
 
@@ -204,7 +233,7 @@
     const expectedQuery = normalizeQuery(state.lockedQuery || state.query || "");
     const expectedSender = normalizeEmail(state.lockedSender || extractSenderFromQuery(expectedQuery));
     if (!expectedQuery || !expectedSender) {
-      throw new Error("Safety check failed: run 'Select All Emails Like Open Email' before archiving.");
+      throw new Error(`Safety check failed: run '${LABELS.SELECT_LIKE_OPEN_EMAIL}' before archiving.`);
     }
 
     const currentQuery = getCurrentSearchQuery();
@@ -360,7 +389,7 @@
 
   async function ensureSearchContext(query) {
     if (!query) {
-      throw new Error("Missing search query. Run 'Select All Like Open Email' first.");
+      throw new Error(`Missing search query. Run '${LABELS.SELECT_LIKE_OPEN_EMAIL}' first.`);
     }
 
     const currentQuery = getCurrentSearchQuery();
@@ -881,7 +910,7 @@
 
   async function ensureQueryReady() {
     if (!state.lockedQuery || !state.lockedSender) {
-      throw new Error("Run 'Select All Emails Like Open Email' first so archive is locked to that sender.");
+      throw new Error(`Run '${LABELS.SELECT_LIKE_OPEN_EMAIL}' first so archive is locked to that sender.`);
     }
 
     await ensureSearchContext(state.lockedQuery);
@@ -1003,6 +1032,7 @@
 
   function mountSidebar() {
     if (document.getElementById("gc-root") && document.getElementById("gc-toggle")) {
+      syncExtensionVisibilityFromStorage();
       return;
     }
 
@@ -1023,17 +1053,17 @@
       <div id="gc-body">
         <div class="gc-section gc-section-prepare">
           <p class="gc-section-title">Prepare</p>
-          <button class="gc-btn" id="gc-unsub">Unsubscribe Opened Email</button>
-          <button class="gc-btn" id="gc-like-open">Select All Emails Like Open Email</button>
+          <button class="gc-btn" id="gc-unsub">${escapeHtml(LABELS.UNSUBSCRIBE_OPEN_EMAIL)}</button>
+          <button class="gc-btn" id="gc-like-open">${escapeHtml(LABELS.SELECT_LIKE_OPEN_EMAIL)}</button>
         </div>
         <div class="gc-section gc-section-archive">
           <p class="gc-section-title">Archive</p>
-          <button class="gc-btn" id="gc-archive">Archive Listed Emails in This Page</button>
-          <button class="gc-btn" id="gc-archive-rec">Archive Listed Emails in All Pages</button>
+          <button class="gc-btn" id="gc-archive">${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}</button>
+          <button class="gc-btn" id="gc-archive-rec">${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}</button>
         </div>
         <div class="gc-section gc-section-inbox">
           <p class="gc-section-title">Inbox</p>
-          <button class="gc-btn" id="gc-inbox">Go to Inbox</button>
+          <button class="gc-btn" id="gc-inbox">${escapeHtml(LABELS.GO_TO_INBOX)}</button>
         </div>
       </div>
       <div id="gc-success" aria-live="polite">
@@ -1056,7 +1086,8 @@
     document.getElementById("gc-archive")?.addEventListener("click", actionArchiveAll);
     document.getElementById("gc-archive-rec")?.addEventListener("click", actionArchiveRecursive);
 
-    setLog("Ready. Open an email, then click 'Select All Like Open Email'.");
+    setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
+    syncExtensionVisibilityFromStorage();
   }
 
   function boot() {
@@ -1079,6 +1110,11 @@
   observer.observe(document.documentElement || document.body, {
     childList: true,
     subtree: true
+  });
+
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes[SHOW_EXTENSION_KEY]) return;
+    setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
   });
 
   window.addEventListener("hashchange", mountSidebar);
