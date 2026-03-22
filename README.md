@@ -8,11 +8,16 @@ A Chrome extension that adds a lightweight sidebar inside Gmail with quick actio
 gmail-cleaner-extension/
 ├── manifest.json
 ├── content.js
-├── background.js
 ├── styles.css
 ├── icons/
+│   ├── icon16.png
+│   ├── icon32.png
+│   ├── icon48.png
+│   └── icon128.png
 ├── docs/
-│   └── screenshots/
+│   ├── screenshots/
+│   ├── CHROME_WEB_STORE_SUBMISSION.md
+│   └── PRIVACY_POLICY.md
 ├── README.md
 ├── LICENSE
 └── .gitignore
@@ -20,9 +25,10 @@ gmail-cleaner-extension/
 
 ## Features
 
-- `Unsubscribe (open email)`
-- `Select All Like Open Email`
-- `Archive All Listed`
+- `Unsubscribe Open Email`
+- `Select All Emails Like Open Email`
+- `Archive Listed Emails in This Page`
+- `Archive Listed Emails in All Pages`
 
 ## Installation (local)
 
@@ -41,14 +47,22 @@ gmail-cleaner-extension/
 
 1. Open an email from a sender you want to clean up.
 2. Open the extension sidebar in Gmail.
-3. Click **Select All Like Open Email**.
-4. Click **Archive All Listed** (optionally use unsubscribe for the open message first).
+3. Click **Select All Emails Like Open Email**.
+4. Click **Archive Listed Emails in This Page** (or **Archive Listed Emails in All Pages**).
 
 ## Notes
 
 - Uses Gmail's existing UI actions.
 - Gmail DOM and labels can change over time, so selectors may need updates.
 - Test with a small sender batch first.
+
+## Chrome Web Store release
+
+- Submission checklist: `docs/CHROME_WEB_STORE_SUBMISSION.md`
+- Privacy policy text: `docs/PRIVACY_POLICY.md`
+- Listing screenshots folder: `docs/screenshots/`
+- CWS form copy/paste answers: `docs/CWS_FORM_ANSWERS.md`
+- Promo tile (440x280): `docs/store-assets/promo-tile-440x280.png`
 
 ## License
 
