@@ -8,6 +8,10 @@
   "background": {
     "service_worker": "background.js"
   },
+  "action": {
+    "default_title": "Gmail Sidebar Cleaner",
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*"],
