@@ -15,6 +15,35 @@
         <span>Show the extension</span>
       </label>
 
+      <section class="shortcut-settings">
+        <h2>Execute Selected Shortcut</h2>
+        <label class="toggle-row" for="shortcut-enabled">
+          <input id="shortcut-enabled" type="checkbox" />
+          <span>Enable keyboard shortcut in Gmail</span>
+        </label>
+        <div class="shortcut-grid">
+          <label for="shortcut-key">Key</label>
+          <input id="shortcut-key" type="text" maxlength="1" placeholder="E" />
+          <label class="shortcut-check" for="shortcut-alt">
+            <input id="shortcut-alt" type="checkbox" />
+            <span>Alt</span>
+          </label>
+          <label class="shortcut-check" for="shortcut-shift">
+            <input id="shortcut-shift" type="checkbox" />
+            <span>Shift</span>
+          </label>
+          <label class="shortcut-check" for="shortcut-ctrl">
+            <input id="shortcut-ctrl" type="checkbox" />
+            <span>Ctrl</span>
+          </label>
+          <label class="shortcut-check" for="shortcut-meta">
+            <input id="shortcut-meta" type="checkbox" />
+            <span>Cmd/Win</span>
+          </label>
+        </div>
+        <p class="shortcut-hint" id="shortcut-preview"></p>
+      </section>
+
       <section class="about">
         <h2>About</h2>
         <p>Helps you clean your Gmail inbox faster using Gmail-native actions.</p>
