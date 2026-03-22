@@ -50,6 +50,43 @@ body {
   padding: 10px;
 }
 
+.scan-settings {
+  margin-top: 12px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.scan-settings h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scan-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.scan-row label {
+  font-size: 12px;
+  color: #3c4043;
+}
+
+#max-scan-pages {
+  width: 76px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
 .shortcut-settings h2 {
   margin: 0 0 8px;
   font-size: 12px;
