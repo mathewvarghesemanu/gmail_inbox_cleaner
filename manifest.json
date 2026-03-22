@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Gmail Sidebar Cleaner",
+  "name": "Gmail Unsubscriber Ondevice",
   "description": "Sidebar actions for unsubscribe, selecting similar emails, and archiving in Gmail.",
   "version": "1.1.0",
   "icons": {
@@ -11,7 +11,7 @@
   },
   "permissions": ["storage"],
   "action": {
-    "default_title": "Gmail Sidebar Cleaner",
+    "default_title": "Gmail Unsubscriber Ondevice",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

@@ -17,13 +17,13 @@
 
 ## 3. Listing text (suggested)
 
-Title: Gmail Sidebar Cleaner
+Title: Gmail Unsubscriber Ondevice
 
 Short description:
 Clean your Gmail inbox faster with Gmail-native unsubscribe and archive actions.
 
 Detailed description:
-Gmail Sidebar Cleaner adds a compact sidebar inside Gmail with fast actions for bulk cleanup. It helps you find emails by sender, select matching conversations, archive listed emails, and trigger unsubscribe controls from the open message view using Gmail's existing interface.
+Gmail Unsubscriber Ondevice adds a compact sidebar inside Gmail with fast actions for bulk cleanup. It helps you find emails by sender, select matching conversations, archive listed emails, and trigger unsubscribe controls from the open message view using Gmail's existing interface.
 
 ## 4. Privacy and compliance
 
@@ -45,5 +45,5 @@ Gmail Sidebar Cleaner adds a compact sidebar inside Gmail with fast actions for 
 Run from project root:
 
 ```bash
-zip -r gmail-sidebar-cleaner-v1.1.0.zip . -x "*.git*" "docs/screenshots/*" "*.DS_Store"
+zip -r gmail-unsubscriber-ondevice-v1.1.0.zip . -x "*.git*" "docs/screenshots/*" "*.DS_Store"
 ```

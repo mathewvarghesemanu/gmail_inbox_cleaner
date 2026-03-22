@@ -1,8 +1,8 @@
-# Privacy Policy - Gmail Sidebar Cleaner
+# Privacy Policy - Gmail Unsubscriber Ondevice
 
 Effective date: March 22, 2026
 
-Gmail Sidebar Cleaner does not collect, sell, or share your personal data.
+Gmail Unsubscriber Ondevice does not collect, sell, or share your personal data.
 
 ## What this extension accesses
 

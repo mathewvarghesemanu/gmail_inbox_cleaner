@@ -1047,7 +1047,7 @@
     root.classList.add("gc-hidden");
     root.innerHTML = `
       <div id="gc-header">
-        <p id="gc-title">Gmail Sidebar Cleaner</p>
+        <p id="gc-title">Gmail Unsubscriber Ondevice</p>
         <p id="gc-subtitle">Use Gmail-native actions</p>
       </div>
       <div id="gc-body">
