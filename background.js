@@ -1,6 +1,7 @@
 const AUTO_RELOAD_KEY = "autoReloadEnabled";
 const ALARM_NAME = "dev-auto-reload";
 
+/** Returns auto reload enabled. */
 async function getAutoReloadEnabled() {
   return new Promise((resolve) => {
     chrome.storage.local.get([AUTO_RELOAD_KEY], (result) => {
@@ -15,6 +16,7 @@ async function getAutoReloadEnabled() {
   });
 }
 
+/** Ensures alarm. */
 async function ensureAlarm() {
   const enabled = await getAutoReloadEnabled();
   if (!enabled) {

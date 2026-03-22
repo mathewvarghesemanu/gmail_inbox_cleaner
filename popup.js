@@ -1,5 +1,9 @@
 const SHOW_EXTENSION_KEY = "showExtensionEnabled";
 const EXECUTE_SELECTED_SHORTCUT_KEY = "executeSelectedShortcut";
+const NEXT_SCAN_PAGE_LIMIT_KEY = "nextScanPageLimit";
+const DEFAULT_SCAN_PAGE_LIMIT = 1;
+const MIN_SCAN_PAGE_LIMIT = 1;
+const MAX_SCAN_PAGE_LIMIT = 200;
 const DEFAULT_SHORTCUT = {
   enabled: true,
   key: "E",
@@ -9,6 +13,7 @@ const DEFAULT_SHORTCUT = {
   meta: false
 };
 
+/** Returns show extension enabled. */
 function getShowExtensionEnabled() {
   return new Promise((resolve) => {
     chrome.storage.local.get([SHOW_EXTENSION_KEY], (result) => {
@@ -23,6 +28,7 @@ function getShowExtensionEnabled() {
   });
 }
 
+/** Normalizes shortcut config. */
 function normalizeShortcutConfig(raw) {
   const candidate = raw || {};
   const key = String(candidate.key || DEFAULT_SHORTCUT.key)
@@ -40,6 +46,24 @@ function normalizeShortcutConfig(raw) {
   };
 }
 
+/** Normalizes scan page limit. */
+function normalizeScanPageLimit(raw) {
+  const parsed = Number.parseInt(String(raw ?? ""), 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_SCAN_PAGE_LIMIT;
+  return Math.min(MAX_SCAN_PAGE_LIMIT, Math.max(MIN_SCAN_PAGE_LIMIT, parsed));
+}
+
+/** Migrates legacy scan page limit. */
+function migrateLegacyScanPageLimit(raw) {
+  const normalized = normalizeScanPageLimit(raw);
+  if (Number(raw) === 25) {
+    chrome.storage.local.set({ [NEXT_SCAN_PAGE_LIMIT_KEY]: DEFAULT_SCAN_PAGE_LIMIT });
+    return DEFAULT_SCAN_PAGE_LIMIT;
+  }
+  return normalized;
+}
+
+/** Returns shortcut config. */
 function getShortcutConfig() {
   return new Promise((resolve) => {
     chrome.storage.local.get([EXECUTE_SELECTED_SHORTCUT_KEY], (result) => {
@@ -52,6 +76,20 @@ function getShortcutConfig() {
   });
 }
 
+/** Returns scan page limit. */
+function getScanPageLimit() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([NEXT_SCAN_PAGE_LIMIT_KEY], (result) => {
+      if (chrome.runtime.lastError) {
+        resolve(DEFAULT_SCAN_PAGE_LIMIT);
+        return;
+      }
+      resolve(migrateLegacyScanPageLimit(result[NEXT_SCAN_PAGE_LIMIT_KEY]));
+    });
+  });
+}
+
+/** Formats shortcut. */
 function formatShortcut(config) {
   const parts = [];
   if (config.ctrl) parts.push("Ctrl");
@@ -62,6 +100,7 @@ function formatShortcut(config) {
   return parts.join(" + ");
 }
 
+/** Handles init. */
 async function init() {
   const checkbox = document.getElementById("show-extension");
   const shortcutEnabled = document.getElementById("shortcut-enabled");
@@ -71,6 +110,7 @@ async function init() {
   const shortcutCtrl = document.getElementById("shortcut-ctrl");
   const shortcutMeta = document.getElementById("shortcut-meta");
   const shortcutPreview = document.getElementById("shortcut-preview");
+  const maxScanPages = document.getElementById("max-scan-pages");
   if (
     !checkbox ||
     !shortcutEnabled ||
@@ -79,13 +119,15 @@ async function init() {
     !shortcutShift ||
     !shortcutCtrl ||
     !shortcutMeta ||
-    !shortcutPreview
+    !shortcutPreview ||
+    !maxScanPages
   ) {
     return;
   }
 
   const enabled = await getShowExtensionEnabled();
   const shortcut = await getShortcutConfig();
+  const scanPageLimit = await getScanPageLimit();
   checkbox.checked = enabled;
   shortcutEnabled.checked = shortcut.enabled;
   shortcutKey.value = shortcut.key;
@@ -94,6 +136,7 @@ async function init() {
   shortcutCtrl.checked = shortcut.ctrl;
   shortcutMeta.checked = shortcut.meta;
   shortcutPreview.textContent = `Current shortcut: ${formatShortcut(shortcut)}`;
+  maxScanPages.value = String(scanPageLimit);
 
   checkbox.addEventListener("change", () => {
     chrome.storage.local.set({ [SHOW_EXTENSION_KEY]: checkbox.checked }, async () => {
@@ -106,6 +149,7 @@ async function init() {
     });
   });
 
+  /** Handles save shortcut. */
   const saveShortcut = () => {
     const normalized = normalizeShortcutConfig({
       enabled: shortcutEnabled.checked,
@@ -130,6 +174,12 @@ async function init() {
   shortcutShift.addEventListener("change", saveShortcut);
   shortcutCtrl.addEventListener("change", saveShortcut);
   shortcutMeta.addEventListener("change", saveShortcut);
+
+  maxScanPages.addEventListener("change", () => {
+    const nextLimit = normalizeScanPageLimit(maxScanPages.value);
+    maxScanPages.value = String(nextLimit);
+    chrome.storage.local.set({ [NEXT_SCAN_PAGE_LIMIT_KEY]: nextLimit });
+  });
 }
 
 init();
