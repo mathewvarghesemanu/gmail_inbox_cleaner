@@ -18,7 +18,6 @@
     cachedNextEmailListHash: "",
     cachedNextEmailSourceUrl: "",
     maxScanPages: 1,
-    shortcut: null,
     working: false,
     batchExecuting: false,
     stopExecutionRequested: false,
@@ -41,22 +40,11 @@
     GO_TO_NEXT_PAGE: "gc-next-page"
   };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
-  const EXECUTE_SELECTED_SHORTCUT_KEY = "executeSelectedShortcut";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
-  const NEXT_SCAN_PAGE_LIMIT_KEY = "nextScanPageLimit";
   const NEXT_EMAIL_TARGET_CACHE_KEY = "nextEmailTargetCache";
-  const DEFAULT_SCAN_PAGE_LIMIT = 1;
+  const DEFAULT_SCAN_PAGE_LIMIT = 5;
   const MIN_SCAN_PAGE_LIMIT = 1;
   const MAX_SCAN_PAGE_LIMIT = 200;
-  const DEFAULT_SHORTCUT = {
-    enabled: true,
-    key: "E",
-    alt: true,
-    shift: true,
-    ctrl: false,
-    meta: false
-  };
-  state.shortcut = { ...DEFAULT_SHORTCUT };
   state.maxScanPages = DEFAULT_SCAN_PAGE_LIMIT;
 
   /** Handles sleep. */
@@ -450,53 +438,11 @@
     updateExecuteSelectedState();
   }
 
-  /** Normalizes shortcut config. */
-  function normalizeShortcutConfig(raw) {
-    const candidate = raw || {};
-    const key = String(candidate.key || DEFAULT_SHORTCUT.key)
-      .trim()
-      .slice(0, 1)
-      .toUpperCase();
-
-    return {
-      enabled: candidate.enabled !== false,
-      key: key || DEFAULT_SHORTCUT.key,
-      alt: candidate.alt !== false,
-      shift: candidate.shift !== false,
-      ctrl: candidate.ctrl === true,
-      meta: candidate.meta === true
-    };
-  }
-
   /** Normalizes scan page limit. */
   function normalizeScanPageLimit(raw) {
     const parsed = Number.parseInt(String(raw ?? ""), 10);
     if (!Number.isFinite(parsed)) return DEFAULT_SCAN_PAGE_LIMIT;
     return Math.min(MAX_SCAN_PAGE_LIMIT, Math.max(MIN_SCAN_PAGE_LIMIT, parsed));
-  }
-
-  /** Migrates legacy scan page limit. */
-  function migrateLegacyScanPageLimit(raw) {
-    const normalized = normalizeScanPageLimit(raw);
-    if (Number(raw) === 25) {
-      safeStorageSet({ [NEXT_SCAN_PAGE_LIMIT_KEY]: DEFAULT_SCAN_PAGE_LIMIT });
-      return DEFAULT_SCAN_PAGE_LIMIT;
-    }
-    return normalized;
-  }
-
-  /** Loads shortcut config. */
-  function loadShortcutConfig() {
-    safeStorageGet([EXECUTE_SELECTED_SHORTCUT_KEY], (result) => {
-      state.shortcut = normalizeShortcutConfig(result[EXECUTE_SELECTED_SHORTCUT_KEY]);
-    });
-  }
-
-  /** Loads scan page limit. */
-  function loadScanPageLimit() {
-    safeStorageGet([NEXT_SCAN_PAGE_LIMIT_KEY], (result) => {
-      state.maxScanPages = migrateLegacyScanPageLimit(result[NEXT_SCAN_PAGE_LIMIT_KEY]);
-    });
   }
 
   /** Checks whether editable target. */
@@ -506,33 +452,6 @@
     if (tag === "input" || tag === "textarea" || tag === "select") return true;
     if (target.isContentEditable) return true;
     return Boolean(target.closest?.("[contenteditable='true']"));
-  }
-
-  /** Handles matches shortcut. */
-  function matchesShortcut(event) {
-    const shortcut = state.shortcut || DEFAULT_SHORTCUT;
-    if (!shortcut.enabled) return false;
-    if ((event.key || "").toUpperCase() !== shortcut.key) return false;
-    if (event.altKey !== shortcut.alt) return false;
-    if (event.shiftKey !== shortcut.shift) return false;
-    if (event.ctrlKey !== shortcut.ctrl) return false;
-    if (event.metaKey !== shortcut.meta) return false;
-    return true;
-  }
-
-  /** Handles on global keydown. */
-  function onGlobalKeydown(event) {
-    if (!event.isTrusted) return;
-    if (isEditableTarget(event.target)) return;
-    if (state.working || state.batchExecuting) return;
-
-    if (!matchesShortcut(event)) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    void runWithElapsedToast("Execute Selected", async () => {
-      await executeSelectedActions();
-    });
   }
 
   /** Returns action handler. */
@@ -2851,7 +2770,7 @@
     const toggle = document.createElement("button");
     toggle.id = "gc-toggle";
     toggle.type = "button";
-    toggle.textContent = "Cleaner";
+    toggle.textContent = "Gmail unsubscriber";
     document.body.appendChild(toggle);
 
     const root = document.createElement("aside");
@@ -2992,8 +2911,6 @@
     if (!document.body) return;
     mountSidebar();
     loadCachedNextEmailTarget();
-    loadShortcutConfig();
-    loadScanPageLimit();
   }
 
   boot();
@@ -3020,12 +2937,6 @@
     if (areaName !== "local") return;
     if (changes[SHOW_EXTENSION_KEY]) {
       setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
-    }
-    if (changes[EXECUTE_SELECTED_SHORTCUT_KEY]) {
-      state.shortcut = normalizeShortcutConfig(changes[EXECUTE_SELECTED_SHORTCUT_KEY].newValue);
-    }
-    if (changes[NEXT_SCAN_PAGE_LIMIT_KEY]) {
-      state.maxScanPages = normalizeScanPageLimit(changes[NEXT_SCAN_PAGE_LIMIT_KEY].newValue);
     }
     if (changes[NEXT_EMAIL_TARGET_CACHE_KEY]) {
       const cached = changes[NEXT_EMAIL_TARGET_CACHE_KEY].newValue || {};
@@ -3071,5 +2982,4 @@
     if (state.extensionContextInvalidated) return;
     mountSidebar();
   });
-  document.addEventListener("keydown", onGlobalKeydown, true);
 })();

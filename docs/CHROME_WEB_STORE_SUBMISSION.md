@@ -7,6 +7,7 @@
 - [ ] Icons exist and are declared (`16`, `32`, `48`, `128`)
 - [ ] No debug/test code left in release bundle
 - [ ] Zip package root contains `manifest.json`
+- [ ] `extension.md` matches the current shipped behavior
 
 ## 2. Listing assets
 
@@ -20,10 +21,10 @@
 Title: Gmail Unsubscriber Ondevice
 
 Short description:
-Clean your Gmail inbox faster with Gmail-native unsubscribe and archive actions.
+Clean your Gmail inbox faster with Gmail-native cleanup, unsubscribe, and archive actions.
 
 Detailed description:
-Gmail Unsubscriber Ondevice adds a compact sidebar inside Gmail with fast actions for bulk cleanup. It helps you find emails by sender, select matching conversations, archive listed emails, and trigger unsubscribe controls from the open message view using Gmail's existing interface.
+Gmail Unsubscriber Ondevice adds a compact sidebar inside Gmail with fast actions for bulk cleanup. It helps users work from the open email, select matching conversations by sender, archive listed emails, trigger Gmail's unsubscribe controls when available, batch multiple actions with Execute Selected, and continue cleanup with next-email navigation.
 
 ## 4. Privacy and compliance
 
@@ -45,5 +46,5 @@ Gmail Unsubscriber Ondevice adds a compact sidebar inside Gmail with fast action
 Run from project root:
 
 ```bash
-zip -r gmail-unsubscriber-ondevice-v1.1.0.zip . -x "*.git*" "docs/screenshots/*" "*.DS_Store"
+zip -r gmail-unsubscriber-ondevice-v2.1.0.zip . -x "*.git*" "docs/screenshots/*" "*.DS_Store" "*.zip"
 ```

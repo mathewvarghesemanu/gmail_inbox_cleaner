@@ -1,6 +1,6 @@
 # Gmail Unsubscriber Ondevice
 
-A Chrome extension that adds a lightweight sidebar inside Gmail with quick actions to unsubscribe, select similar emails, and archive in bulk.
+A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sender-based selection, batch execution, archiving, and next-email navigation.
 
 ## Folder structure
 
@@ -29,6 +29,12 @@ gmail-cleaner-extension/
 - `Select All Emails Like Open Email`
 - `Archive Listed Emails in This Page`
 - `Archive Listed Emails in All Pages`
+- `Go to Inbox`
+- `Go to Next Email`
+- `Execute Selected`
+- `Stop Execution`
+- Popup setting to show or hide the in-page extension UI
+- Popup setting for `Max pages to scan` when preparing next-email targeting
 
 ## Installation (local)
 
@@ -41,23 +47,25 @@ gmail-cleaner-extension/
 ## Requirements
 
 - Gmail web UI (`https://mail.google.com/*`)
-- Keyboard shortcuts enabled in Gmail settings (recommended for reliability)
 
 ## Usage
 
 1. Open an email from a sender you want to clean up.
 2. Open the extension sidebar in Gmail.
-3. Click **Select All Emails Like Open Email**.
-4. Click **Archive Listed Emails in This Page** (or **Archive Listed Emails in All Pages**).
+3. Use individual buttons for one-off actions, or check multiple actions and click **Execute Selected** to run a batch.
+4. Typical batch flow: **Select All Emails Like Open Email** and then **Archive Listed Emails in This Page** or **Archive Listed Emails in All Pages**.
+5. Optionally include **Go to Next Email** to continue the cleanup flow across senders.
 
 ## Notes
 
 - Uses Gmail's existing UI actions.
+- The sidebar launcher inside Gmail is labeled `Gmail unsubscriber`.
 - Gmail DOM and labels can change over time, so selectors may need updates.
 - Test with a small sender batch first.
 
 ## Chrome Web Store release
 
+- Current extension state doc: `extension.md`
 - Submission checklist: `docs/CHROME_WEB_STORE_SUBMISSION.md`
 - Privacy policy text: `docs/PRIVACY_POLICY.md`
 - Listing screenshots folder: `docs/screenshots/`

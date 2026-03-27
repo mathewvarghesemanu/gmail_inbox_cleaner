@@ -2,7 +2,7 @@
 
 ## Single purpose
 
-Gmail Unsubscriber Ondevice helps users clean up Gmail inboxes faster with Gmail-native actions for sender-based selection, unsubscribe access, and archiving.
+Gmail Unsubscriber Ondevice helps users clean up Gmail inboxes faster with Gmail-native actions for sender-based selection, unsubscribe access, batch execution, and archiving.
 
 ## Permission justifications
 
@@ -35,8 +35,8 @@ If you host it publicly (recommended), point the CWS privacy policy URL to that 
 
 ## Short description
 
-Clean your Gmail inbox faster with Gmail-native unsubscribe and archive actions.
+Clean your Gmail inbox faster with Gmail-native cleanup, unsubscribe, and archive actions.
 
 ## Detailed description
 
-Gmail Unsubscriber Ondevice adds a compact sidebar inside Gmail with fast actions for bulk cleanup. It helps you find emails by sender, select matching conversations, archive listed emails, and trigger unsubscribe controls from the open message view using Gmail's existing interface.
+Gmail Unsubscriber Ondevice adds a compact sidebar inside Gmail with fast actions for bulk cleanup. It helps users work from the open email, select matching conversations by sender, archive listed emails, trigger Gmail's unsubscribe controls when available, batch multiple actions with Execute Selected, and continue cleanup with next-email navigation.
