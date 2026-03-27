@@ -63,9 +63,12 @@
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   let successTimer = null;
   let proceedConfirmationResolver = null;
+  let proceedAutoCountdownTimer = null;
   const toastQueue = [];
   let toastQueueActive = false;
   const CONTEXT_INVALIDATED_MESSAGE = "Extension context invalidated";
+  const AUTO_PROCEED_SECONDS = 3;
+  const AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT = "No unsubscribe button/link found";
 
   /** Checks whether context invalidated error. */
   function isContextInvalidatedError(error) {
@@ -359,9 +362,44 @@
 
   /** Handles hide proceed confirmation. */
   function hideProceedConfirmation() {
+    stopProceedAutoCountdown();
     const box = document.getElementById("gc-confirm");
     if (!box) return;
     box.classList.remove("gc-confirm-visible");
+  }
+
+  /** Updates proceed button label. */
+  function setProceedButtonLabel(label) {
+    const proceedBtn = document.getElementById("gc-confirm-proceed");
+    if (!proceedBtn) return;
+    proceedBtn.textContent = label;
+  }
+
+  /** Stops auto proceed countdown. */
+  function stopProceedAutoCountdown() {
+    if (proceedAutoCountdownTimer) {
+      clearInterval(proceedAutoCountdownTimer);
+      proceedAutoCountdownTimer = null;
+    }
+    setProceedButtonLabel("Proceed");
+  }
+
+  /** Starts auto proceed countdown. */
+  function startProceedAutoCountdown(seconds = AUTO_PROCEED_SECONDS) {
+    stopProceedAutoCountdown();
+    let remainingSeconds = Math.max(1, Number.parseInt(String(seconds ?? ""), 10) || AUTO_PROCEED_SECONDS);
+    setProceedButtonLabel(`Proceed (${remainingSeconds})`);
+    proceedAutoCountdownTimer = setInterval(() => {
+      remainingSeconds -= 1;
+      if (remainingSeconds <= 0) {
+        stopProceedAutoCountdown();
+        if (proceedConfirmationResolver) {
+          resolveProceedConfirmation(true);
+        }
+        return;
+      }
+      setProceedButtonLabel(`Proceed (${remainingSeconds})`);
+    }, 1000);
   }
 
   /** Resolves proceed confirmation. */
@@ -384,6 +422,11 @@
 
     messageEl.textContent = message;
     box.classList.add("gc-confirm-visible");
+    if (String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
+      startProceedAutoCountdown(AUTO_PROCEED_SECONDS);
+    } else {
+      stopProceedAutoCountdown();
+    }
 
     return new Promise((resolve) => {
       proceedConfirmationResolver = resolve;
@@ -642,6 +685,8 @@
         showToast("Execution stopped");
       }
     } finally {
+      clearCachedNextEmailTarget();
+      setLog("Execution complete. Cleared cached next email target.");
       state.batchExecuting = false;
       state.stopExecutionRequested = false;
       setWorking(false);
@@ -650,7 +695,9 @@
 
   /** Handles should wait between actions. */
   function shouldWaitBetweenActions(currentActionId, nextActionId) {
-    void currentActionId;
+    // Unsubscribe runs in open-thread view; waiting for list rows here can add
+    // unnecessary latency before the next action that already manages navigation.
+    if (currentActionId === ACTION_BUTTON_IDS.UNSUBSCRIBE) return false;
     // If the next step navigates away, waiting for list rows is unnecessary
     // and can add long delays when archive emptied the current filtered results.
     if (nextActionId === ACTION_BUTTON_IDS.GO_TO_INBOX) return false;
@@ -2854,7 +2901,6 @@
           </div>
         </div>
         <div id="gc-next-target-section" class="gc-section gc-hidden">
-          <p class="gc-section-title">Next Email Target</p>
           <details id="gc-next-target-accordion">
             <summary id="gc-next-target-summary-text" class="gc-next-target-summary">Not cached yet.</summary>
             <div class="gc-next-target-grid">
@@ -2876,7 +2922,6 @@
               <div id="gc-next-target-list-hash" class="gc-next-target-value">-</div>
             </div>
           </details>
-          <button class="gc-btn" id="gc-clear-next-target">Clear Cached Target</button>
         </div>
         <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled>Execute Selected</button>
         <button class="gc-btn gc-btn-stop" id="gc-stop-execution" disabled>Stop Execution</button>
@@ -2917,11 +2962,6 @@
         updateExecuteSelectedState();
         persistActionCheckboxState();
       });
-    });
-    document.getElementById("gc-clear-next-target")?.addEventListener("click", () => {
-      clearCachedNextEmailTarget();
-      setLog("Cached next email target cleared.");
-      showToast("Cleared cached next email target");
     });
     document.getElementById("gc-execute-selected")?.addEventListener("click", () => {
       void runWithElapsedToast("Execute Selected", async () => {
