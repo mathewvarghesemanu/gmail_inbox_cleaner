@@ -31,8 +31,12 @@ gmail-cleaner-extension/
 - `Archive Listed Emails in All Pages`
 - `Go to Inbox`
 - `Go to Next Email`
+- `Show Archived` — searches for archived emails from current sender
 - `Execute Selected`
 - `Stop Execution`
+- Draggable sidebar panel — drag by header, position persists across sessions
+- Draggable toggle button — slides along Y-axis, grip icon on hover
+- Buttons and checkboxes disable automatically when no email is open or an action is running
 - Popup setting to show or hide the in-page extension UI
 - Popup setting for `Max pages to scan` when preparing next-email targeting
 
