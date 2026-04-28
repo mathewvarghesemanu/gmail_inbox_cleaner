@@ -19,6 +19,32 @@
   padding: 12px 14px;
   background: linear-gradient(135deg, #f1f8ff, #eef7f1);
   border-bottom: 1px solid #e8eaed;
+  cursor: grab;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+#gc-header:hover {
+  background: linear-gradient(135deg, #e8f3ff, #e6f4ea);
+}
+
+#gc-header:active {
+  cursor: grabbing;
+}
+
+#gc-drag-handle {
+  display: block;
+  text-align: center;
+  font-size: 14px;
+  opacity: 0.3;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+#gc-header:hover #gc-drag-handle {
+  opacity: 0.6;
 }
 
 #gc-title {
@@ -335,6 +361,27 @@
   background: #0b57d0;
   box-shadow: 0 6px 14px rgba(11, 87, 208, 0.32);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+#gc-toggle:hover {
+  background: #084ab2;
+  box-shadow: 0 8px 20px rgba(11, 87, 208, 0.45);
+}
+
+#gc-toggle-grip {
+  opacity: 0.45;
+  font-size: 13px;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+#gc-toggle:hover #gc-toggle-grip {
+  opacity: 0.85;
 }
 
 #gc-root.gc-hidden {

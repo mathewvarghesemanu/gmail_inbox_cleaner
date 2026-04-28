@@ -42,6 +42,7 @@
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   const NEXT_EMAIL_TARGET_CACHE_KEY = "nextEmailTargetCache";
+  const ROOT_POS_KEY = "gcRootPos";
   const DEFAULT_SCAN_PAGE_LIMIT = 5;
   const MIN_SCAN_PAGE_LIMIT = 1;
   const MAX_SCAN_PAGE_LIMIT = 200;
@@ -49,6 +50,82 @@
 
   /** Handles sleep. */
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** Applies top/left position to a fixed element, clearing right/transform overrides. */
+  function applyElPosition(el, top, left, clamp = true) {
+    if (clamp) {
+      const w = el.offsetWidth || 40;
+      const h = el.offsetHeight || 40;
+      top = Math.max(0, Math.min(top, window.innerHeight - h));
+      left = Math.max(0, Math.min(left, window.innerWidth - w));
+    }
+    el.style.top = top + "px";
+    el.style.left = left + "px";
+    el.style.right = "auto";
+    el.style.bottom = "auto";
+    el.style.transform = "none";
+  }
+
+  /** Makes a fixed element draggable. If posKey provided, persists position via chrome.storage.local. axis: "x"|"y"|null for both. */
+  function makeDraggable(el, posKey, handleEl, axis) {
+    if (!handleEl) handleEl = el;
+
+    if (posKey) {
+      safeStorageGet([posKey], (result) => {
+        if (result[posKey]) {
+          applyElPosition(el, result[posKey].top, result[posKey].left, false);
+        }
+      });
+    }
+
+    let drag = null;
+    let didMove = false;
+
+    handleEl.style.cursor = "grab";
+
+    handleEl.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target !== handleEl && e.target.closest("button,input,a,select,textarea")) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      drag = { startX: e.clientX, startY: e.clientY, origLeft: rect.left, origTop: rect.top };
+      didMove = false;
+      handleEl.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+    });
+
+    document.addEventListener("mousemove", (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      if (!didMove && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+      didMove = true;
+      const newTop = axis === "x" ? drag.origTop : drag.origTop + dy;
+      const newLeft = axis === "y" ? drag.origLeft : drag.origLeft + dx;
+      applyElPosition(el, newTop, newLeft);
+    });
+
+    document.addEventListener("mouseup", () => {
+      if (!drag) return;
+      drag = null;
+      handleEl.style.cursor = "grab";
+      document.body.style.userSelect = "";
+      if (didMove && posKey) {
+        const rect = el.getBoundingClientRect();
+        safeStorageSet({ [posKey]: { top: rect.top, left: rect.left } });
+      }
+    });
+
+    if (el === handleEl) {
+      handleEl.addEventListener("click", (e) => {
+        if (didMove) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+          didMove = false;
+        }
+      }, true);
+    }
+  }
   let successTimer = null;
   let proceedConfirmationResolver = null;
   let proceedAutoCountdownTimer = null;
@@ -424,18 +501,43 @@
   /** Sets working. */
   function setWorking(next) {
     state.working = next;
+    refreshControlStates();
+  }
+
+  /** Refreshes all control enabled/disabled states based on current working and email-open state. */
+  function refreshControlStates() {
+    const emailOpen = !!state.openSender;
+    const working = state.working;
+    const noEmailExempt = new Set([ACTION_BUTTON_IDS.GO_TO_INBOX, "gc-show-archived"]);
+
     document.querySelectorAll(".gc-btn").forEach((btn) => {
-      btn.disabled = next;
+      if (working) {
+        btn.disabled = true;
+      } else if (!emailOpen) {
+        btn.disabled = !noEmailExempt.has(btn.id);
+      } else {
+        btn.disabled = false;
+      }
     });
+
     document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
-      checkbox.disabled = next;
+      checkbox.disabled = working || !emailOpen;
     });
+
     const workingEl = document.getElementById("gc-working");
     if (workingEl) {
-      workingEl.classList.toggle("gc-working-visible", next);
-      workingEl.setAttribute("aria-hidden", next ? "false" : "true");
+      workingEl.classList.toggle("gc-working-visible", working);
+      workingEl.setAttribute("aria-hidden", working ? "false" : "true");
     }
+
     updateExecuteSelectedState();
+  }
+
+  /** Detects current email open state and refreshes controls. No-op while action in progress. */
+  function refreshOpenEmailState() {
+    if (state.working) return;
+    findOpenEmailSender();
+    refreshControlStates();
   }
 
   /** Normalizes scan page limit. */
@@ -2592,6 +2694,20 @@
     }
   }
 
+  /** Shows archived emails by running the archived search query. */
+  async function actionShowArchived() {
+    setWorking(true);
+    try {
+      await runSearchQuery("-in:inbox -in:sent -in:drafts -in:spam -in:trash");
+      setLog("Showing archived emails.");
+      showToast("Showing archived");
+    } catch (err) {
+      setLog("Could not run archived search: " + err.message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
   /** Returns row open control. */
   function getRowOpenControl(row) {
     return (
@@ -2719,7 +2835,16 @@
       }
       setLog("Load Next Email [4/8]: Validating target URL...");
       if (!cached || !state.cachedNextEmailUrl) {
-        setLog("Load Next Email [4/8]: No cached email target found. Run Unsubscribe Open Email first.");
+        setLog("Load Next Email [4/8]: No cache — trying Gmail's Older button...");
+        const olderBtn = findNextPageButton();
+        if (olderBtn) {
+          robustClick(olderBtn);
+          await waitForSelector("div[role='main'] h2.hP, div[role='main'] h2[data-thread-perm-id]", 12000);
+          setLog("Load Next Email: Opened next email via Older button.");
+          showToast("Opened next email");
+          return;
+        }
+        setLog("Load Next Email [4/8]: No cached target and no Older button found.");
         announceEmailTargetStatus("Email target before open");
         showToast("No cached email target");
         return;
@@ -2770,7 +2895,7 @@
     const toggle = document.createElement("button");
     toggle.id = "gc-toggle";
     toggle.type = "button";
-    toggle.textContent = "Gmail unsubscriber";
+    toggle.innerHTML = '<span id="gc-toggle-grip" aria-hidden="true">⠿</span>Gmail unsubscriber';
     document.body.appendChild(toggle);
 
     const root = document.createElement("aside");
@@ -2778,6 +2903,7 @@
     root.classList.add("gc-hidden");
     root.innerHTML = `
       <div id="gc-header">
+        <span id="gc-drag-handle" aria-hidden="true">⠿</span>
         <p id="gc-title">Gmail Unsubscriber Ondevice</p>
         <p id="gc-subtitle">Use Gmail-native actions</p>
       </div>
@@ -2800,23 +2926,26 @@
         <div class="gc-section gc-section-archive">
           <p class="gc-section-title">Archive</p>
           <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}" />
+            <input class="gc-action-checkbox" type="radio" name="gc-archive-mode" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}" />
             <button class="gc-btn" id="${ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE}">${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}</button>
           </div>
           <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}" />
+            <input class="gc-action-checkbox" type="radio" name="gc-archive-mode" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}" />
             <button class="gc-btn" id="${ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES}">${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}</button>
           </div>
         </div>
         <div class="gc-section gc-section-inbox">
           <p class="gc-section-title">Inbox</p>
           <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.GO_TO_INBOX}" aria-label="Select ${escapeHtml(LABELS.GO_TO_INBOX)}" />
+            <input class="gc-action-checkbox" type="radio" name="gc-inbox-mode" data-action-id="${ACTION_BUTTON_IDS.GO_TO_INBOX}" aria-label="Select ${escapeHtml(LABELS.GO_TO_INBOX)}" />
             <button class="gc-btn" id="${ACTION_BUTTON_IDS.GO_TO_INBOX}">${escapeHtml(LABELS.GO_TO_INBOX)}</button>
           </div>
           <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE}" aria-label="Select ${escapeHtml(LABELS.GO_TO_NEXT_PAGE)}" />
+            <input class="gc-action-checkbox" type="radio" name="gc-inbox-mode" data-action-id="${ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE}" aria-label="Select ${escapeHtml(LABELS.GO_TO_NEXT_PAGE)}" />
             <button class="gc-btn" id="${ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE}">${escapeHtml(LABELS.GO_TO_NEXT_PAGE)}</button>
+          </div>
+          <div class="gc-action-row" style="display:flex;justify-content:center;">
+            <button class="gc-btn" id="gc-show-archived" style="width:100%;text-align:center;">Show Archived</button>
           </div>
         </div>
         <div id="gc-next-target-section" class="gc-section gc-hidden">
@@ -2875,6 +3004,12 @@
       });
     });
 
+    document.getElementById("gc-show-archived")?.addEventListener("click", () => {
+      void runWithElapsedToast("Show Archived", async () => {
+        await actionShowArchived();
+      });
+    });
+
     document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
       checkbox.addEventListener("change", () => {
         renderNextEmailTargetSection();
@@ -2900,7 +3035,11 @@
     });
     restoreActionCheckboxState();
     renderNextEmailTargetSection();
-    updateExecuteSelectedState();
+    findOpenEmailSender();
+    refreshControlStates();
+
+    makeDraggable(toggle, null, null, "y");
+    makeDraggable(root, ROOT_POS_KEY, document.getElementById("gc-header"));
 
     setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
     syncExtensionVisibilityFromStorage();
@@ -2916,6 +3055,7 @@
   boot();
 
   let lastHref = location.href;
+  let refreshControlsDebounceTimer = null;
   const observer = new MutationObserver(() => {
     if (state.extensionContextInvalidated) return;
     if (location.href !== lastHref) {
@@ -2923,6 +3063,9 @@
       mountSidebar();
     } else if (!document.getElementById("gc-root") || !document.getElementById("gc-toggle")) {
       mountSidebar();
+    } else {
+      clearTimeout(refreshControlsDebounceTimer);
+      refreshControlsDebounceTimer = setTimeout(refreshOpenEmailState, 300);
     }
   });
 
