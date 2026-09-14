@@ -41,6 +41,12 @@
   };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
+  /** Actions checked on first run, before the user has saved any selection. */
+  const DEFAULT_CHECKED_ACTION_IDS = new Set([
+    ACTION_BUTTON_IDS.UNSUBSCRIBE,
+    ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES,
+    ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE
+  ]);
   const NEXT_EMAIL_TARGET_CACHE_KEY = "nextEmailTargetCache";
   const ROOT_POS_KEY = "gcRootPos";
   const DEFAULT_SCAN_PAGE_LIMIT = 5;
@@ -66,6 +72,25 @@
     el.style.transform = "none";
   }
 
+  /** Clears inline position so the element falls back to its CSS default placement. */
+  function resetElPosition(el) {
+    ["top", "left", "right", "bottom", "transform"].forEach((prop) => el.style.removeProperty(prop));
+  }
+
+  /** Keeps a dragged fixed element inside the viewport; resets to CSS default if barely visible. No-op while hidden or at default placement. */
+  function keepElInView(el) {
+    if (!el || !el.offsetWidth || !el.style.left) return;
+    const minVisible = 40;
+    const rect = el.getBoundingClientRect();
+    const visibleW = Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0);
+    const visibleH = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+    if (visibleW < Math.min(minVisible, rect.width / 2) || visibleH < Math.min(minVisible, rect.height / 2)) {
+      resetElPosition(el);
+      return;
+    }
+    applyElPosition(el, rect.top, rect.left);
+  }
+
   /** Makes a fixed element draggable. If posKey provided, persists position via chrome.storage.local. axis: "x"|"y"|null for both. */
   function makeDraggable(el, posKey, handleEl, axis) {
     if (!handleEl) handleEl = el;
@@ -74,6 +99,7 @@
       safeStorageGet([posKey], (result) => {
         if (result[posKey]) {
           applyElPosition(el, result[posKey].top, result[posKey].left, false);
+          keepElInView(el);
         }
       });
     }
@@ -602,14 +628,16 @@
   /** Restores action checkbox state. */
   function restoreActionCheckboxState() {
     safeStorageGet([ACTION_CHECKBOX_STATE_KEY], (result) => {
-      const saved = result[ACTION_CHECKBOX_STATE_KEY];
-      if (!saved || typeof saved !== "object") return;
+      const stored = result[ACTION_CHECKBOX_STATE_KEY];
+      const hasSaved = !!stored && typeof stored === "object";
+      const saved = hasSaved ? stored : {};
 
       document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
         const actionId = checkbox.getAttribute("data-action-id") || "";
         if (!actionId) return;
-        checkbox.checked = saved[actionId] === true;
+        checkbox.checked = actionId in saved ? saved[actionId] === true : DEFAULT_CHECKED_ACTION_IDS.has(actionId);
       });
+      if (!hasSaved) persistActionCheckboxState();
       renderNextEmailTargetSection();
       updateExecuteSelectedState();
     });
@@ -2904,8 +2932,8 @@
     root.innerHTML = `
       <div id="gc-header">
         <span id="gc-drag-handle" aria-hidden="true">⠿</span>
+        <button type="button" id="gc-minimize" title="Minimize" aria-label="Minimize panel">&#8211;</button>
         <p id="gc-title">Gmail Unsubscriber Ondevice</p>
-        <p id="gc-subtitle">Use Gmail-native actions</p>
       </div>
       <div id="gc-working" aria-live="polite" aria-hidden="true">
         <span class="gc-working-spinner" aria-hidden="true"></span>
@@ -2993,6 +3021,11 @@
 
     toggle.addEventListener("click", () => {
       root.classList.toggle("gc-hidden");
+      keepElInView(root);
+    });
+
+    document.getElementById("gc-minimize")?.addEventListener("click", () => {
+      root.classList.add("gc-hidden");
     });
 
     Object.values(ACTION_BUTTON_IDS).forEach((buttonId) => {
@@ -3053,6 +3086,15 @@
   }
 
   boot();
+
+  let resizeFrame = 0;
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      keepElInView(document.getElementById("gc-root"));
+      keepElInView(document.getElementById("gc-toggle"));
+    });
+  });
 
   let lastHref = location.href;
   let refreshControlsDebounceTimer = null;
