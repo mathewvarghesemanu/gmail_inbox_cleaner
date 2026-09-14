@@ -44,6 +44,7 @@
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
     ACTION_BUTTON_IDS.UNSUBSCRIBE,
+    ACTION_BUTTON_IDS.SELECT_LIKE_OPEN,
     ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES,
     ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE
   ]);
