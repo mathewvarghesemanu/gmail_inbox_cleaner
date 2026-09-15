@@ -1043,14 +1043,15 @@
     }
   }
 
-  /** Navigates inbox list view. */
-  async function gotoInboxListView() {
-    const inThread = !!document.querySelector("div[role='main'] h2.hP, div[role='main'] h2[data-thread-perm-id]");
-    if (inThread) {
-      window.location.hash = "#inbox";
-      await sleep(1000);
-      await waitForThreadRows(6000);
+  /** Waits for Gmail to route away from a known URL. */
+  async function waitForUrlChange(previousUrl, timeout = 2000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (location.href !== previousUrl) return true;
+      if (shouldStopExecution()) break;
+      await sleep(60);
     }
+    return location.href !== previousUrl;
   }
 
   /** Runs search query. */
@@ -1109,23 +1110,34 @@
       document.dispatchEvent(up);
     };
 
+    const routeStart = Date.now();
     pressEnterOnSearch();
-    await sleep(700);
+
+    // Gmail routes to #search asynchronously. Poll for it rather than paying a
+    // fixed sleep budget: the common case settles in ~300ms, not 700ms.
+    let routed = await waitForUrlChange(previousUrl, 2000);
 
     // Gmail sometimes needs a second Enter to execute from filled search box.
-    if (location.href === previousUrl) {
+    if (!routed) {
       pressEnterOnSearch();
-      await sleep(700);
+      routed = await waitForUrlChange(previousUrl, 1500);
     }
 
     // Fallback only if Enter didn't trigger the search route.
-    if (location.href === previousUrl) {
+    if (!routed) {
       window.location.hash = `#search/${encodeURIComponent(query)}`;
-      await sleep(800);
+      await waitForUrlChange(previousUrl, 1500);
     }
 
-    await waitForThreadRows(12000);
-    await sleep(500);
+    const rowsStart = Date.now();
+    const rows = await waitForThreadRows(12000);
+    await sleep(150);
+    console.log("[GmailCleaner] runSearchQuery timing", {
+      query,
+      routeMs: rowsStart - routeStart,
+      rowsMs: Date.now() - rowsStart,
+      rowCount: rows.length
+    });
     return query;
   }
 
@@ -2543,9 +2555,12 @@
         throw new Error("Open an email first so I can detect its sender.");
       }
 
-      await gotoInboxListView();
+      // No inbox hop first: runSearchQuery navigates to #search from thread view
+      // anyway, so loading the inbox list only to discard it was pure latency.
+      const searchStart = Date.now();
       setLog(`Searching ${sender}...`);
       const query = await searchBySender(sender);
+      console.log("[GmailCleaner] Select Like Open timing", { totalMs: Date.now() - searchStart });
       state.lockedSender = normalizeEmail(sender);
       state.lockedQuery = normalizeQuery(query);
       setLog("Search ready.");
