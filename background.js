@@ -16,8 +16,14 @@ async function getAutoReloadEnabled() {
   });
 }
 
+/** Returns whether the alarms API is available (dev auto-reload only). */
+function hasAlarmsApi() {
+  return typeof chrome.alarms !== "undefined";
+}
+
 /** Ensures alarm. */
 async function ensureAlarm() {
+  if (!hasAlarmsApi()) return;
   const enabled = await getAutoReloadEnabled();
   if (!enabled) {
     chrome.alarms.clear(ALARM_NAME);
@@ -53,11 +59,25 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   ensureAlarm();
 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== ALARM_NAME) return;
+if (hasAlarmsApi()) {
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name !== ALARM_NAME) return;
 
-  const enabled = await getAutoReloadEnabled();
-  if (!enabled) return;
+    const enabled = await getAutoReloadEnabled();
+    if (!enabled) return;
 
-  chrome.runtime.reload();
+    chrome.runtime.reload();
+  });
+}
+
+const EXECUTE_SELECTED_COMMAND = "execute-selected";
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command !== EXECUTE_SELECTED_COMMAND) return;
+  if (!tab?.id) return;
+
+  chrome.tabs.sendMessage(tab.id, { type: "gc-execute-selected" }, () => {
+    // No content script on this tab (not Gmail, or not yet injected).
+    void chrome.runtime.lastError;
+  });
 });

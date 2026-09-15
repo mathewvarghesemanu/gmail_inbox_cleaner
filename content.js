@@ -49,6 +49,11 @@
     ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE
   ]);
   const NEXT_EMAIL_TARGET_CACHE_KEY = "nextEmailTargetCache";
+  /** Chrome command (manifest "commands") that runs Execute Selected. */
+  const EXECUTE_SELECTED_COMMAND = "execute-selected";
+  const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+  /** Default suggested_key, shown on the button; users can rebind it in Chrome. */
+  const EXECUTE_SELECTED_SHORTCUT_LABEL = IS_MAC ? "\u2318\u21e7E" : "Ctrl+Shift+E";
   const ROOT_POS_KEY = "gcRootPos";
   const DEFAULT_SCAN_PAGE_LIMIT = 5;
   const MIN_SCAN_PAGE_LIMIT = 1;
@@ -655,6 +660,49 @@
     executeButton.disabled = state.working || !hasSelections;
     if (stopButton) {
       stopButton.disabled = !state.batchExecuting;
+    }
+  }
+
+  /** Runs Execute Selected with the shared toast wrapper. */
+  function triggerExecuteSelected() {
+    void runWithElapsedToast("Execute Selected", async () => {
+      await executeSelectedActions();
+    });
+  }
+
+  /** Runs Execute Selected from the keyboard shortcut, with UI-state guards. */
+  function runExecuteSelectedFromShortcut() {
+    const executeButton = document.getElementById("gc-execute-selected");
+    if (!executeButton) return;
+    // Respect the popup's hide toggle: no hidden actions from a hidden panel.
+    const root = document.getElementById("gc-root");
+    if (root && root.style.display === "none") return;
+
+    if (state.working || state.batchExecuting) {
+      showToast("Already running");
+      return;
+    }
+    if (!getSelectedActionIds().length) {
+      showToast("Select at least one action first");
+      return;
+    }
+    triggerExecuteSelected();
+  }
+
+  /** Listens for the Chrome command relayed by the service worker. */
+  function installShortcutCommandListener() {
+    if (window.__gmailCleanerShortcutsInstalled) return;
+    if (!chrome.runtime?.onMessage) return;
+    window.__gmailCleanerShortcutsInstalled = true;
+    try {
+      chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+        if (message?.type !== "gc-execute-selected") return;
+        runExecuteSelectedFromShortcut();
+        sendResponse({ ok: true });
+      });
+    } catch (error) {
+      // Extension context can be invalidated after a reload; the next page load re-installs.
+      console.log("[GmailCleaner] Shortcut listener not installed", error);
     }
   }
 
@@ -3005,7 +3053,7 @@
             </div>
           </details>
         </div>
-        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled>Execute Selected</button>
+        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled title="Execute Selected (${EXECUTE_SELECTED_SHORTCUT_LABEL})">Execute Selected <span class="gc-shortcut-hint">${EXECUTE_SELECTED_SHORTCUT_LABEL}</span></button>
         <button class="gc-btn gc-btn-stop" id="gc-stop-execution" disabled>Stop Execution</button>
       </div>
       <div id="gc-confirm" role="alert" aria-live="assertive">
@@ -3057,9 +3105,7 @@
       });
     });
     document.getElementById("gc-execute-selected")?.addEventListener("click", () => {
-      void runWithElapsedToast("Execute Selected", async () => {
-        await executeSelectedActions();
-      });
+      triggerExecuteSelected();
     });
     document.getElementById("gc-stop-execution")?.addEventListener("click", () => {
       void runWithElapsedToast("Stop Execution", async () => {
@@ -3088,6 +3134,7 @@
   function boot() {
     if (!document.body) return;
     mountSidebar();
+    installShortcutCommandListener();
     loadCachedNextEmailTarget();
   }
 

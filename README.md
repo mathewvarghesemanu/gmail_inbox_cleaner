@@ -32,7 +32,7 @@ gmail-cleaner-extension/
 - `Go to Inbox`
 - `Go to Next Email`
 - `Show Archived` — searches for archived emails from current sender
-- `Execute Selected`
+- `Execute Selected` — also bound to a keyboard shortcut (`Ctrl+Shift+E`, `Command+Shift+E` on macOS); rebind it at `chrome://extensions/shortcuts`
 - `Stop Execution`
 - Draggable sidebar panel — drag by header, position persists across sessions
 - Draggable toggle button — slides along Y-axis, grip icon on hover
