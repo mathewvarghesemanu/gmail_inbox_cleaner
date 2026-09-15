@@ -10,6 +10,18 @@
     "128": "icons/icon128.png"
   },
   "permissions": ["storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "execute-selected": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+Shift+E"
+      },
+      "description": "Execute Selected"
+    }
+  },
   "action": {
     "default_title": "Gmail Unsubscriber Ondevice",
     "default_popup": "popup.html",
