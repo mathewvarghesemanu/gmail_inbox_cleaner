@@ -1110,7 +1110,6 @@
       document.dispatchEvent(up);
     };
 
-    const routeStart = Date.now();
     pressEnterOnSearch();
 
     // Gmail routes to #search asynchronously. Poll for it rather than paying a
@@ -1129,15 +1128,8 @@
       await waitForUrlChange(previousUrl, 1500);
     }
 
-    const rowsStart = Date.now();
-    const rows = await waitForThreadRows(12000);
+    await waitForThreadRows(12000);
     await sleep(150);
-    console.log("[GmailCleaner] runSearchQuery timing", {
-      query,
-      routeMs: rowsStart - routeStart,
-      rowsMs: Date.now() - rowsStart,
-      rowCount: rows.length
-    });
     return query;
   }
 
@@ -2557,10 +2549,8 @@
 
       // No inbox hop first: runSearchQuery navigates to #search from thread view
       // anyway, so loading the inbox list only to discard it was pure latency.
-      const searchStart = Date.now();
       setLog(`Searching ${sender}...`);
       const query = await searchBySender(sender);
-      console.log("[GmailCleaner] Select Like Open timing", { totalMs: Date.now() - searchStart });
       state.lockedSender = normalizeEmail(sender);
       state.lockedQuery = normalizeQuery(query);
       setLog("Search ready.");
