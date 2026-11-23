@@ -94,7 +94,7 @@
     } catch (error) {
       if (!selectedActionIds.includes(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE)) throw error;
       setLog(`${error?.message || error} Continuing without Go to Next Email.`);
-      showToast(STRINGS.toast.nextTargetUnavailable, { durationMs: 3500 });
+      showToast(STRINGS.toast.nextTargetUnavailable, { durationMs: 3500, type: "warning" });
       return selectedActionIds.filter((id) => id !== ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
     }
   }
@@ -125,6 +125,11 @@
         if (shouldStopExecution()) break;
         const actionId = selectedActionIds[index];
         const nextActionId = selectedActionIds[index + 1] || "";
+        GC.setProgress("");
+        GC.setWorkingStep(
+          STRINGS.ui.workingStep(index + 1, selectedActionIds.length, GC.getButtonLabel(document.getElementById(actionId))),
+          actionId
+        );
         await runActionByButtonId(actionId, { skipWorking: true });
         if (shouldStopExecution()) break;
         if (index < selectedActionIds.length - 1 && shouldWaitBetweenActions(actionId, nextActionId)) {
@@ -140,7 +145,7 @@
       // Surface the reason instead of letting the finally block overwrite it
       // with "Execution complete" (which looked like nothing happened).
       failureMessage = error?.message || String(error);
-      showToast(STRINGS.toast.executionFailed, { durationMs: 3500 });
+      showToast(`${STRINGS.toast.executionFailed}: ${failureMessage}`, { durationMs: 5000, type: "error" });
     } finally {
       clearCachedNextEmailTarget();
       setLog(
@@ -174,7 +179,7 @@
       await dismissUnsubscribeDialogs(1);
       const rows = getThreadRows();
       if (rows.length > 0) {
-        await sleep(120);
+        await GC.settle(120);
         return true;
       }
 
@@ -182,7 +187,7 @@
       if (hasVisibleToolbar) {
         await waitForThreadRows(1200);
         if (getThreadRows().length > 0) {
-          await sleep(120);
+          await GC.settle(120);
           return true;
         }
       }
@@ -191,7 +196,7 @@
     }
 
     // Keep flow resilient if Gmail is slow or there are simply no rows.
-    await sleep(200);
+    await GC.settle(200);
     return false;
   }
 

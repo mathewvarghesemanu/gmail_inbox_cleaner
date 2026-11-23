@@ -204,7 +204,7 @@
     );
     if (!settled) return false;
     // Short settle so Gmail finishes applying the selection before archive.
-    await sleep(180);
+    await GC.settle(180);
     return true;
   }
 

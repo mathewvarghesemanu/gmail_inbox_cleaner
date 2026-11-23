@@ -34,18 +34,18 @@
   const BULK_KINDS = {
     archive: {
       verbing: "archiving",
+      verbed: "archived",
       findControl: findArchiveControl,
       keyFallback: ["e"],
       stats: (count) => ({ pagesArchived: 1, conversationsArchived: count }),
-      doneToast: STRINGS.toast.archived,
       completeToast: STRINGS.toast.archiveComplete
     },
     delete: {
       verbing: "deleting",
+      verbed: "deleted",
       findControl: () => GC.findDeleteControl(),
       keyFallback: null,
       stats: (count) => ({ deleted: count }),
-      doneToast: STRINGS.toast.deleted,
       completeToast: STRINGS.toast.deleteComplete
     }
   };
@@ -85,7 +85,7 @@
     await selectAllMatchingSearch({ includeAllInSearch: false });
     setLog(`Page ${pageNumber}: ${state.selectedConversationsText} Archiving...`);
     await archiveSelected();
-    await sleep(800);
+    await GC.settle(800);
     return true;
   }
 
@@ -129,11 +129,10 @@
       await applyToSelected(kind);
       recordStats(config.stats(selectedCount));
       setLog(`${kind === "delete" ? "Delete" : "Archive"} action sent for current page.`);
-      GC.flashSuccess(config.doneToast);
-      GC.showToast(config.completeToast);
+      GC.flashSuccess(config.completeToast);
       GC.offerGmailUndo(kind);
     } catch (error) {
-      setLog(error.message || `${kind === "delete" ? "Delete" : "Archive"} failed.`);
+      GC.reportError(error.message || `${kind === "delete" ? "Delete" : "Archive"} failed.`);
     } finally {
       if (manageWorking) GC.setWorking(false);
     }
@@ -163,6 +162,7 @@
       }
 
       let cycles = 0;
+      let processed = 0;
       let unchangedCycles = 0;
       const maxCycles = 300;
       const maxUnchangedCycles = 4;
@@ -183,8 +183,11 @@
         await waitForSelectionToSettle();
         setLog(`Cycle ${cycles + 1}: ${config.verbing}...`);
         const selectedCount = countSelectedConversationRows();
+        GC.setProgress(STRINGS.ui.bulkProgress(cycles + 1, processed, config.verbed));
         await applyToSelected(kind);
         recordStats(config.stats(selectedCount));
+        processed += selectedCount;
+        GC.setProgress(STRINGS.ui.bulkProgress(cycles + 1, processed, config.verbed));
         undoTracker.cycles += 1;
         // Wait (up to the previous fixed 2s) for Gmail to repopulate the list with
         // different rows; then a short settle before the next cycle reads it.
@@ -193,7 +196,7 @@
           const fingerprint = getFirstRowFingerprint();
           return !!(fingerprint && fingerprint !== beforeFingerprint);
         }, { timeout: 2000, interval: 150, shouldAbort: GC.shouldStopExecution });
-        if (refreshed) await sleep(300);
+        if (refreshed) await GC.settle(300);
 
         cycles += 1;
 
@@ -208,8 +211,7 @@
             await sleep(800);
           } else {
             setLog(`Stopped after ${cycles} cycles: list did not change after retries.`);
-            GC.flashSuccess(config.doneToast);
-            GC.showToast(config.completeToast);
+            GC.flashSuccess(config.completeToast);
             return;
           }
         } else {
@@ -222,10 +224,9 @@
         return;
       }
       setLog(`${kind === "delete" ? "Delete" : "Archive"} loop completed after ${cycles} cycle(s).`);
-      GC.flashSuccess(config.doneToast);
-      GC.showToast(config.completeToast);
+      GC.flashSuccess(config.completeToast);
     } catch (error) {
-      setLog(error.message || `${kind === "delete" ? "Delete" : "Archive"} across all pages failed.`);
+      GC.reportError(error.message || `${kind === "delete" ? "Delete" : "Archive"} across all pages failed.`);
     } finally {
       if (undoTracker.sender && undoTracker.cycles > 0) GC.offerUndoAllArchive(undoTracker.sender);
       if (manageWorking) GC.setWorking(false);
@@ -260,7 +261,7 @@
       setLog("Showing archived emails.");
       GC.showToast(STRINGS.toast.showingArchived);
     } catch (err) {
-      setLog("Could not run archived search: " + err.message);
+      GC.reportError("Could not run archived search: " + err.message);
     } finally {
       GC.setWorking(false);
     }

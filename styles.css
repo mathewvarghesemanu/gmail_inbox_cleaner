@@ -1,9 +1,11 @@
 #gc-root {
   position: fixed;
-  top: 88px;
-  right: 20px;
+  /* Default placement: right edge, vertically centred (same spot as the toggle). */
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
   width: 320px;
-  max-height: calc(100vh - 96px);
+  max-height: calc(100vh - 48px);
   background: #ffffff;
   border: 1px solid #dadce0;
   border-radius: 12px;
@@ -75,6 +77,25 @@
   opacity: 0.6;
 }
 
+#gc-fast-badge {
+  margin: 6px auto 0;
+  width: fit-content;
+  padding: 2px 8px;
+  border: 1px solid #f9ab00;
+  border-radius: 999px;
+  background: #fef7e0;
+  color: #7a4d00;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: help;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-fast-badge {
+  border-color: #fdd663;
+  background: #2b2612;
+  color: #fdd663;
+}
+
 #gc-title {
   margin: 0;
   font-size: 15px;
@@ -87,6 +108,19 @@
   padding: 12px;
   display: grid;
   gap: 8px;
+  /* Scroll inside the panel instead of clipping actions on short screens. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* overflow-y: auto would make overflow-x auto too; never scroll sideways. */
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  /* minmax(0, 1fr): long one-line text (sender, next email) must not widen the track. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#gc-root > :not(#gc-body) {
+  flex-shrink: 0;
 }
 
 #gc-working {
@@ -104,7 +138,32 @@
 }
 
 #gc-working.gc-working-visible {
-  display: inline-flex;
+  display: flex;
+}
+
+.gc-working-lines {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gc-working-text {
+  overflow-wrap: anywhere;
+}
+
+.gc-working-detail {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.gc-working-spinner {
+  flex-shrink: 0;
+}
+
+.gc-action-row.gc-row-active .gc-btn {
+  border-color: #0b57d0;
+  box-shadow: 0 0 0 1px #0b57d0 inset;
 }
 
 .gc-working-spinner {
@@ -131,7 +190,7 @@
   background: #fbfcfe;
   padding: 8px;
   display: grid;
-  gap: 8px;
+  gap: 8px;  grid-template-columns: minmax(0, 1fr);
 }
 
 .gc-hidden {
@@ -164,14 +223,81 @@
 
 .gc-btn:disabled {
   opacity: 0.6;
-  cursor: progress;
+  cursor: not-allowed;
+}
+
+#gc-root.gc-is-working .gc-btn:disabled,
+#gc-root.gc-is-working .gc-action-checkbox:disabled {
+  cursor: not-allowed;
+}
+
+#gc-context {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px dashed #dadce0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #5f6368;
+  text-align: center;
+}
+
+#gc-context.gc-context-sender {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c2e7ff;
+  background: #ecf6ff;
+  color: #0b57d0;
+  text-align: left;
+}
+
+.gc-context-label {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.gc-context-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .gc-action-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
+}
+
+.gc-scope-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.gc-scope-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3c4043;
+}
+
+.gc-scope-row .gc-action-row {
+  gap: 6px;
+}
+
+.gc-scope-row .gc-btn {
+  padding: 8px 6px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gc-setting-row {
@@ -202,6 +328,25 @@
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.18);
 }
 
+.gc-action-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding: 0 6px;
+  margin: 0 -4px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.gc-action-check:hover:not(:has(:disabled)) {
+  background: rgba(60, 64, 67, 0.08);
+}
+
+.gc-action-check:has(:disabled) {
+  cursor: not-allowed;
+}
+
 .gc-action-checkbox {
   width: 16px;
   height: 16px;
@@ -211,7 +356,7 @@
 }
 
 .gc-action-checkbox:disabled {
-  cursor: progress;
+  cursor: not-allowed;
 }
 
 .gc-btn-execute {
@@ -243,7 +388,7 @@
 }
 
 .gc-btn-stop {
-  margin-top: 6px;
+  margin-top: 4px;
   text-align: center;
   font-weight: 600;
   border-color: #d93025;
@@ -307,12 +452,14 @@
   background: #fafbfc;
 }
 
-#gc-log {
+#gc-status {
+  display: grid;
   border-top: 1px solid #e8eaed;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #1967d2;
-  min-height: 18px;
+  padding-top: 8px;
+}
+
+#gc-status:not(:has(.gc-confirm-visible, .gc-toast-visible, .gc-undo-visible)) {
+  display: none;
 }
 
 #gc-confirm {
@@ -351,6 +498,13 @@
   cursor: pointer;
 }
 
+#gc-confirm-actions button:focus-visible,
+#gc-undo-action:focus-visible,
+.gc-btn:focus-visible {
+  outline: 2px solid #0b57d0;
+  outline-offset: 1px;
+}
+
 #gc-confirm-proceed {
   border-color: #0b57d0;
   color: #0b57d0;
@@ -361,43 +515,15 @@
   color: #d93025;
 }
 
-#gc-success {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 12px 8px;
-  padding: 6px 8px;
-  border: 1px solid #c7e6cd;
-  border-radius: 8px;
-  background: #eaf6ee;
-  color: #1e8e3e;
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-#gc-success.gc-success-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.gc-success-icon {
-  font-size: 13px;
-  line-height: 1;
-}
-
 #gc-toggle {
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  right: 20px;
+  right: 12px;
   z-index: 2147483647;
   border: 1px solid #0b57d0;
   border-radius: 999px;
-  padding: 10px 14px;
+  padding: 8px 10px;
   font-size: 13px;
   font-weight: 600;
   color: #ffffff;
@@ -427,59 +553,72 @@
   opacity: 0.85;
 }
 
+.gc-toggle-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.gc-toggle-label {
+  max-width: 0;
+  /* Cancel the flex gap while collapsed. */
+  margin-left: -6px;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition: max-width 180ms ease, margin-left 180ms ease, opacity 180ms ease;
+}
+
+#gc-toggle:hover .gc-toggle-label,
+#gc-toggle:focus-visible .gc-toggle-label {
+  max-width: 180px;
+  margin-left: 0;
+  opacity: 1;
+}
+
+#gc-toggle:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-toggle-label {
+    transition: none;
+  }
+}
+
 #gc-root.gc-hidden {
   display: none;
 }
 
-.gc-next-target-value {
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
-  padding: 8px;
-  font-size: 11px;
-  color: #3c4043;
-  background: #ffffff;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-#gc-next-target-accordion {
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 8px;
-}
-
-#gc-next-target-accordion > summary {
-  cursor: pointer;
-  list-style: none;
-}
-
-#gc-next-target-accordion > summary::-webkit-details-marker {
+/* The open panel covers the toggle's spot; the header's minimize button reopens it. */
+#gc-toggle.gc-toggle-covered {
   display: none;
 }
 
-.gc-next-target-summary {
+.gc-next-target {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 4px;
   font-size: 11px;
-  color: #3c4043;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-
-.gc-next-target-grid {
-  margin-top: 8px;
-  display: grid;
-  grid-template-columns: 92px 1fr;
-  gap: 6px;
-  align-items: start;
+  color: #5f6368;
+  min-width: 0;
 }
 
 .gc-next-target-label {
+  flex-shrink: 0;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #5f6368;
-  padding-top: 6px;
+}
+
+.gc-next-target-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #3c4043;
 }
 
 #gc-toast {
@@ -496,6 +635,28 @@
   max-height: 0;
   overflow: hidden;
   transition: opacity 180ms ease, transform 180ms ease, max-height 180ms ease, padding 180ms ease;
+}
+
+#gc-toast[data-type="success"] {
+  background: #e6f4ea;
+  color: #137333;
+  box-shadow: none;
+  border: 1px solid #c7e6cd;
+}
+
+#gc-toast[data-type="warning"] {
+  background: #fef7e0;
+  color: #7a4d00;
+  box-shadow: none;
+  border: 1px solid #f9e1a0;
+}
+
+#gc-toast[data-type="error"] {
+  background: #fce8e6;
+  color: #b3261e;
+  box-shadow: none;
+  border: 1px solid #f6c3bf;
+  font-weight: 600;
 }
 
 #gc-toast.gc-toast-visible {
@@ -573,4 +734,185 @@
 
 #gc-undo-dismiss:hover {
   opacity: 1;
+}
+
+
+/* Dark theme: follows Gmail's theme (see applyTheme in src/ui.js). */
+#gc-root[data-gc-theme="dark"] {
+  background: #202124;
+  border-color: #3c4043;
+  color: #e8eaed;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-header {
+  background: linear-gradient(135deg, #1f2a37, #1e2b24);
+  border-bottom-color: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-header:hover {
+  background: linear-gradient(135deg, #243142, #22322a);
+}
+
+#gc-root[data-gc-theme="dark"] #gc-title,
+#gc-root[data-gc-theme="dark"] .gc-scope-label {
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-minimize {
+  color: #9aa0a6;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-minimize:hover {
+  background: rgba(232, 234, 237, 0.12);
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-section {
+  background: #28292c;
+  border-color: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-section-title,
+#gc-root[data-gc-theme="dark"] .gc-next-target {
+  color: #9aa0a6;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-next-target-summary {
+  color: #bdc1c6;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn {
+  background: #303134;
+  border-color: #5f6368;
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn:hover {
+  background: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn-danger,
+#gc-root[data-gc-theme="dark"] .gc-btn-stop {
+  border-color: #f28b82;
+  color: #f28b82;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn-danger:hover:not(:disabled),
+#gc-root[data-gc-theme="dark"] .gc-btn-stop:hover:not(:disabled) {
+  background: rgba(242, 139, 130, 0.12);
+}
+
+#gc-root[data-gc-theme="dark"] #gc-execute-selected[data-ready="false"] {
+  background: #2d2e31;
+  border-color: #3c4043;
+  color: #80868b;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-execute-selected[data-ready="true"] {
+  background: #8ab4f8;
+  border-color: #8ab4f8;
+  color: #062e6f;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-execute-selected[data-ready="true"]:hover:not(:disabled) {
+  background: #aecbfa;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-action-checkbox {
+  accent-color: #8ab4f8;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-action-check:hover:not(:has(:disabled)) {
+  background: rgba(232, 234, 237, 0.08);
+}
+
+#gc-root[data-gc-theme="dark"] .gc-action-row.gc-row-active .gc-btn {
+  border-color: #8ab4f8;
+  box-shadow: 0 0 0 1px #8ab4f8 inset;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-context {
+  border-color: #5f6368;
+  color: #9aa0a6;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-context.gc-context-sender {
+  border-color: #394457;
+  background: #1f2a3a;
+  color: #a8c7fa;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-working {
+  border-color: #394457;
+  background: #1f2a3a;
+  color: #a8c7fa;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-status {
+  border-top-color: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm {
+  border-color: #7a5c00;
+  background: #2b2612;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-message {
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-actions button {
+  background: #303134;
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-proceed {
+  border-color: #8ab4f8;
+  color: #8ab4f8;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-stop {
+  border-color: #f28b82;
+  color: #f28b82;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm.gc-confirm-danger #gc-confirm-proceed {
+  background: #f28b82;
+  border-color: #f28b82;
+  color: #3c0d0a;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast,
+#gc-root[data-gc-theme="dark"] #gc-undo {
+  background: #e8eaed;
+  color: #202124;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-undo-action {
+  border-color: #0b57d0;
+  color: #0b57d0;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-undo-dismiss {
+  color: #202124;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast[data-type="success"] {
+  background: #0f2e1a;
+  border-color: #1e4d2b;
+  color: #81c995;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast[data-type="warning"] {
+  background: #2b2612;
+  border-color: #5c4a00;
+  color: #fdd663;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast[data-type="error"] {
+  background: #3a1513;
+  border-color: #6c2b27;
+  color: #f28b82;
 }

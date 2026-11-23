@@ -12,7 +12,7 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 │   ├── matching.js      # DOM-free matching helpers (unit-tested)
 │   └── ...              # selectors, search, archive, unsubscribe, next-email, ui, main
 ├── styles.css           # in-page sidebar styles
-├── popup.html           # toolbar popup (settings)
+├── popup.html           # toolbar popup (stats; settings behind the gear button)
 ├── popup.js
 ├── popup.css
 ├── icons/
@@ -41,21 +41,30 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 
 - `Unsubscribe Open Email`
 - `Select All Emails Like Open Email`
-- `Archive Listed Emails in This Page` — followed by an `Undo archive` button (~10s) that clicks Gmail's own Undo
-- `Archive Listed Emails in All Pages` — shows a dry-run count ("About to archive ~1,234 conversations from ...") before archiving, then offers `Undo all`, which moves that sender's archived mail (`from:<sender> -in:inbox`) back to Inbox after confirmation
+- `Archive Listed Emails in This Page` (sidebar: **Archive → This page**) — followed by an `Undo archive` button (~10s) that clicks Gmail's own Undo
+- `Archive Listed Emails in All Pages` (sidebar: **Archive → All pages**) — shows a dry-run count ("About to archive ~1,234 conversations from ...") before archiving, then offers `Undo all`, which moves that sender's archived mail (`from:<sender> -in:inbox`) back to Inbox after confirmation
 - `Go to Inbox`
 - `Go to Next Email`
 - `Show Archived` — searches for archived emails from the current sender
 - `Execute Selected` — also bound to a keyboard shortcut (`Ctrl+Shift+E`, `Command+Shift+E` on macOS); see Keyboard shortcuts below
-- `Stop Execution`
+- `Stop Execution` — replaces `Execute Selected` while a batch is running
+- Detected sender shown at the top of the sidebar, so you can check the target before running anything
+- Live progress while running (`Step 2/4: ...`, `Page 3 · 150 archived`) and a one-line preview of the next email
+- One status area for prompts, messages (info / success / warning / error) and undo offers; failures are shown, not only logged
+- Clicking a selected Archive/Delete or Inbox option again clears it
+- Confirmation prompts take keyboard focus (Cancel by default for deletes); `Escape` cancels
+- Popup `Theme` setting: `Auto` (default; the sidebar follows Gmail's theme, the popup follows the system setting), `Light` or `Dark` (forces both)
 - Proceed/stop confirmation (with auto-proceed countdown) when no unsubscribe control is found
 - Keyboard shortcuts (see below), shown on the sidebar buttons
-- Popup `Stats` — today / all-time counts of senders unsubscribed, conversations archived, pages archived and batches run, with a `Reset stats` button. Stored only in `chrome.storage.local` (per-day totals kept for 30 days); never leaves the device.
-- Draggable sidebar panel — drag by header, position persists across sessions
-- Draggable toggle button — slides along Y-axis, grip icon on hover
-- Buttons and checkboxes disable automatically when no email is open or an action is running
+- Toolbar popup opens on `Stats`; the gear button (top right) opens `Settings` with every option below
+- Popup `Keyboard shortcuts` (in Settings) — lists the assigned shortcuts, with a button that opens `chrome://extensions/shortcuts`
+- Popup `Stats` — tiles with today / all-time counts of senders unsubscribed, conversations archived, pages archived, conversations deleted and batches run; `Reset stats` is in Settings. Stored only in `chrome.storage.local` (per-day totals kept for 30 days); never leaves the device.
+- Sidebar panel opens next to the toggle button (same right edge, centred on the toggle) and can be dragged by its header while open
+- Draggable toggle button — icon-only, shows its label on hover; slides along Y-axis, grip icon on hover
+- Buttons and checkboxes disable automatically when no email is open (with an "Open an email" hint) or an action is running
 - Popup setting to show or hide the in-page extension UI
-- Optional `Delete Listed Emails in This Page` / `in All Pages` (off by default; enable in the popup). Same sender-locked flow as archive, but moves to Trash. Asks first (never auto-proceeds) unless confirmation is skipped in the popup
+- Popup `Fast mode (skip waiting)` (off by default) — skips the settle pauses between steps and the countdown on prompts that auto-proceed, with a caution that actions will happen very fast. Delete confirmations, retry backoffs and waits for Gmail to finish loading are kept. A `⚡ Fast mode` badge shows in the sidebar header while it is on
+- Optional `Delete Listed Emails in This Page` / `in All Pages` (sidebar: **Delete → This page / All pages**; off by default; enable in the popup). Same sender-locked flow as archive, but moves to Trash. Asks first (never auto-proceeds) unless confirmation is skipped in the popup
 
 ## Keyboard shortcuts
 
@@ -92,7 +101,7 @@ Shortcuts follow the same rules as the buttons: they are ignored while the sideb
 1. Open an email from a sender you want to clean up.
 2. Open the extension sidebar in Gmail.
 3. Use individual buttons for one-off actions, or check multiple actions and click **Execute Selected** to run a batch.
-4. Typical batch flow: **Select All Emails Like Open Email** and then **Archive Listed Emails in This Page** or **Archive Listed Emails in All Pages**.
+4. Typical batch flow: **Select All Emails Like Open Email** and then **Archive → This page** or **Archive → All pages**.
 5. Optionally include **Go to Next Email** to continue the cleanup flow across senders.
 
 ## Notes
@@ -114,6 +123,7 @@ npm run format     # prettier --write (existing sources are excluded via .pretti
 ```
 
 - `tests/matching.test.js` covers the pure sender/subject/date matching helpers.
+- `tests/sidebar-ui.test.js` covers sidebar behavior: option toggling, the sender bar, progress, the status area, Execute/Stop, confirmation keyboard handling and theme detection.
 - `tests/smoke*.test.js` load the content scripts listed in `manifest.json` into hand-built Gmail DOM fixtures (`tests/fixtures/`) with `chrome.*` stubbed, and check that the sidebar mounts and the open-email sender is detected.
 - `tests/load-content.js` is the loader. It defines `globalThis.__GC_TEST__` before the scripts run, and the content script's test hook puts its internals on that object (this does nothing in the real extension). When `src/matching.js` exists, the pure helpers are loaded from it with `require` instead.
 - CI (`.github/workflows/ci.yml`) runs lint and tests on every push and pull request to `main`.

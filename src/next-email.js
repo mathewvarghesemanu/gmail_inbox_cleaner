@@ -11,7 +11,7 @@
     goToNextResultsPage, navigateWithinGmail, normalizeComparableUrl, normalizeEmail,
     normalizeFingerprintText, normalizeQuery, normalizeSubjectForMatch,
     parseDateSignature, robustClick, safeStorageGet, safeStorageSet, scoreRowAgainstEmailSignature,
-    senderSignalMatchesExpected, setLog, sleep, state, waitForSelector, waitForThreadRows } = GC;
+    senderSignalMatchesExpected, setLog, state, waitForSelector, waitForThreadRows } = GC;
 
   /**
    * Pages scanned when finding the next email. Discovery uses the list the email
@@ -72,48 +72,17 @@
   function renderNextEmailTargetSection() {
     const section = document.getElementById("gc-next-target-section");
     const summaryEl = document.getElementById("gc-next-target-summary-text");
-    const urlEl = document.getElementById("gc-next-target-url");
-    const senderEl = document.getElementById("gc-next-target-sender");
-    const subjectEl = document.getElementById("gc-next-target-subject");
-    const dateEl = document.getElementById("gc-next-target-date");
-    const threadIdEl = document.getElementById("gc-next-target-thread-id");
-    const threadTokenEl = document.getElementById("gc-next-target-thread-token");
-    const pageOffsetEl = document.getElementById("gc-next-target-page-offset");
-    const listHashEl = document.getElementById("gc-next-target-list-hash");
     if (!section || !summaryEl) return;
 
     const goNextChecked = GC.isActionChecked(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
     section.classList.toggle("gc-hidden", !goNextChecked);
     if (!goNextChecked) return;
 
-    if (!state.nextTarget.url) {
-      const empty = STRINGS.ui.emptyValue;
-      summaryEl.textContent = STRINGS.ui.notCached;
-      if (urlEl) urlEl.textContent = STRINGS.ui.notCached;
-      if (senderEl) senderEl.textContent = empty;
-      if (subjectEl) subjectEl.textContent = empty;
-      if (dateEl) dateEl.textContent = empty;
-      if (threadIdEl) threadIdEl.textContent = empty;
-      if (threadTokenEl) threadTokenEl.textContent = empty;
-      if (pageOffsetEl) pageOffsetEl.textContent = "0";
-      if (listHashEl) listHashEl.textContent = empty;
-      return;
-    }
-
-    const summaryParts = [
-      state.nextTarget.sender || "",
-      state.nextTarget.subject || "",
-      state.nextTarget.date || ""
-    ].filter(Boolean);
-    summaryEl.textContent = summaryParts.join(" | ") || STRINGS.ui.cachedTargetReady;
-    if (urlEl) urlEl.textContent = state.nextTarget.url;
-    if (senderEl) senderEl.textContent = state.nextTarget.sender || STRINGS.ui.emptyValue;
-    if (subjectEl) subjectEl.textContent = state.nextTarget.subject || STRINGS.ui.emptyValue;
-    if (dateEl) dateEl.textContent = state.nextTarget.date || STRINGS.ui.emptyValue;
-    if (threadIdEl) threadIdEl.textContent = state.nextTarget.threadId || STRINGS.ui.emptyValue;
-    if (threadTokenEl) threadTokenEl.textContent = state.nextTarget.threadToken || STRINGS.ui.emptyValue;
-    if (pageOffsetEl) pageOffsetEl.textContent = String(state.nextTarget.pageOffset || 0);
-    if (listHashEl) listHashEl.textContent = state.nextTarget.listHash || STRINGS.ui.emptyValue;
+    const { url, sender, subject } = state.nextTarget;
+    const summary = url ? [sender, subject].filter(Boolean).join(" \u2013 ") || url : STRINGS.ui.notCached;
+    // Only rewrite on change: main.js re-renders from a childList MutationObserver.
+    if (summaryEl.textContent !== summary) summaryEl.textContent = summary;
+    summaryEl.title = url ? [sender, subject, state.nextTarget.date].filter(Boolean).join("\n") : "";
   }
 
   /** Persists cached next email target. */
@@ -178,7 +147,7 @@
     if (!isInboxListView) {
       window.location.hash = "#inbox";
       await waitForThreadRows(12000);
-      await sleep(250);
+      await GC.settle(250);
       return;
     }
     await waitForThreadRows(5000);
@@ -230,7 +199,7 @@
         navigateWithinGmail(originList);
       }
       await waitForThreadRows(12000);
-      await sleep(200);
+      await GC.settle(200);
       return;
     }
     if (canUseLockedSearchForDiscovery(expectedSender)) {
@@ -462,7 +431,7 @@
         setLog("Returning to current open email...");
         navigateWithinGmail(priorUrl);
         await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
-        await sleep(180);
+        await GC.settle(180);
         setLog("Returned to current email. Continuing flow...");
       }
     }
@@ -553,7 +522,7 @@
     if (listHash) {
       navigateWithinGmail(listHash);
       await waitForThreadRows(12000);
-      await sleep(200);
+      await GC.settle(200);
     } else {
       await navigateToDiscoveryListContext(state.nextTarget.sender || "");
     }
@@ -645,7 +614,7 @@
       GC.showToast(STRINGS.toast.openedNextEmail);
     } catch (error) {
       stopTargetLogTimer();
-      setLog(`Load Next Email failed: ${error.message || "Go to next page failed."}`);
+      GC.reportError(`Load Next Email failed: ${error.message || "Go to next page failed."}`);
     } finally {
       stopTargetLogTimer();
       if (manageWorking) GC.setWorking(false);

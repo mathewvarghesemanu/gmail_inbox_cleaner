@@ -21,6 +21,10 @@
     working: false,
     batchExecuting: false,
     stopExecutionRequested: false,
+    /** Fast mode (popup setting): skip settle pauses and auto-proceed countdowns. */
+    fastMode: false,
+    /** Theme setting from the popup: "auto" follows Gmail's theme. */
+    themePreference: "auto",
     extensionContextInvalidated: false
   };
   /**
@@ -45,6 +49,12 @@
       minimizeTitle: "Minimize",
       minimizeAria: "Minimize panel",
       working: "Working...",
+      workingStep: (step, total, label) => `Step ${step}/${total}: ${label}`,
+      bulkProgress: (page, count, verbed) => `Page ${page} \u00b7 ${count.toLocaleString()} ${verbed}`,
+      openEmailHint: "Open an email to enable actions.",
+      fastModeBadge: "Fast mode",
+      fastModeBadgeTitle: "Fast mode is on: no pauses between steps, and countdown prompts proceed immediately. Turn it off in the extension popup.",
+      senderLabel: "Sender",
       sectionPrepare: "Prepare",
       sectionArchive: "Archive",
       sectionArchiveOrDelete: "Archive or Delete",
@@ -57,25 +67,17 @@
       proceedCountdown: (seconds) => `Proceed (${seconds})`,
       stop: "Stop",
       completed: "Completed",
-      ready: "Ready.",
       actionFallback: "Action",
       undoArchive: "Undo archive",
       deleteConfirm: "Delete",
       cancel: "Cancel",
       undoDismissAria: "Dismiss undo",
-      notCached: "Not cached yet.",
-      cachedTargetReady: "Cached target ready",
-      emptyValue: "-",
-      nextTargetLabels: {
-        url: "URL",
-        sender: "Sender",
-        subject: "Subject",
-        date: "Date",
-        threadId: "Thread ID",
-        threadToken: "Thread Token",
-        pageOffset: "Page Offset",
-        listHash: "List Context"
-      }
+      notCached: "Picked when the run starts",
+      nextTargetLabel: "Next",
+      scopeArchive: "Archive",
+      scopeDelete: "Delete",
+      scopeThisPage: "This page",
+      scopeAllPages: "All pages"
     },
     toast: {
       elapsed: (label, elapsed) => `${label}: ${elapsed} elapsed`,
@@ -84,18 +86,17 @@
       executionStopped: "Execution stopped",
       nextTargetCached: "Next email target cached",
       searchComplete: "Search complete",
-      archived: "Archived",
       archiveComplete: "Archive complete",
       alreadyUnsubscribed: (sender) => `Already unsubscribed: ${sender}`,
       unsubscribeComplete: "Unsubscribe complete",
       proceedingWithoutUnsubscribe: "Proceeding without unsubscribe",
+      fastModeProceeded: "Fast mode: proceeded without waiting",
       movedToInbox: "Moved to Inbox",
       showingArchived: "Showing archived",
       openedNextEmail: "Opened next email",
       noCachedTarget: "No cached email target",
       nextTargetUnavailable: "Couldn't find the next email; skipping Go to Next Email",
       executionFailed: "Execute Selected failed",
-      deleted: "Moved to Trash",
       deleteComplete: "Delete complete",
       deleteCancelled: "Delete cancelled",
       deleteDisabled: "Delete is turned off in the extension popup"
@@ -125,6 +126,9 @@
   /** Popup settings: delete options are opt-in; confirmation can be skipped only when it is on. */
   const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
   const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
+  const FAST_MODE_KEY = "fastModeEnabled";
+  /** Popup theme setting: "auto" (default), "light" or "dark". */
+  const THEME_KEY = "themePreference";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
@@ -172,7 +176,6 @@
   /** Local-only usage counters (never sent anywhere). Shape documented in recordStats. */
   const STATS_KEY = "gcStats";
   const STATS_DAYS_KEPT = 30;
-  const ROOT_POS_KEY = "gcRootPos";
   const CONTEXT_INVALIDATED_MESSAGE = "Extension context invalidated";
   const AUTO_PROCEED_SECONDS = 3;
   const AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT = "No unsubscribe button/link found";
@@ -202,9 +205,9 @@
 
   Object.assign(GC, { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND,
     AUTO_PROCEED_SECONDS, AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, COMMAND_ACTION_IDS,
-    CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, DEFAULT_COMMAND_SHORTCUTS,
+    CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, FAST_MODE_KEY, DEFAULT_COMMAND_SHORTCUTS,
     EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS,
-    NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, ROOT_POS_KEY, SHORTCUT_HINT_TARGETS,
+    NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, SHORTCUT_HINT_TARGETS,
     SHOW_EXTENSION_KEY, SIGNATURE_MATCH_LOG_STYLE, STATS_DAYS_KEPT, STATS_KEY, STOP_EXECUTION_COMMAND,
-    STRINGS, UNDO_ALL_OFFER_MS, UNDO_GMAIL_OFFER_MS, createEmptyNextTarget, state });
+    STRINGS, THEME_KEY, UNDO_ALL_OFFER_MS, UNDO_GMAIL_OFFER_MS, createEmptyNextTarget, state });
 })();

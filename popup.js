@@ -2,6 +2,11 @@ const SHOW_EXTENSION_KEY = "showExtensionEnabled";
 /** Mirrors src/constants.js. */
 const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
 const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
+const FAST_MODE_KEY = "fastModeEnabled";
+/** Mirrors src/constants.js: "auto" (default), "light" or "dark". */
+const THEME_KEY = "themePreference";
+const THEMES = ["auto", "light", "dark"];
+const systemDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 /** Reads keys from chrome.storage.local, resolving {} on error. */
 function storageGet(keys) {
@@ -33,8 +38,8 @@ function renderStats(stats) {
   STAT_FIELDS.forEach((field) => {
     const todayEl = document.querySelector(`[data-stat="today-${field}"]`);
     const totalEl = document.querySelector(`[data-stat="total-${field}"]`);
-    if (todayEl) todayEl.textContent = String(Number(today[field]) || 0);
-    if (totalEl) totalEl.textContent = String(Number(totals[field]) || 0);
+    if (todayEl) todayEl.textContent = (Number(today[field]) || 0).toLocaleString();
+    if (totalEl) totalEl.textContent = (Number(totals[field]) || 0).toLocaleString();
   });
 }
 
@@ -70,7 +75,7 @@ function initStats() {
 }
 
 
-/** Wires the "Show the extension" checkbox. */
+/** Wires the "Show sidebar in Gmail" checkbox. */
 function initShowExtension(checkbox, stored) {
   checkbox.checked = stored[SHOW_EXTENSION_KEY] !== false;
 
@@ -122,14 +127,122 @@ function initDeleteSettings(stored) {
   });
 }
 
+/** Lists the assigned keyboard shortcuts and links to Chrome's shortcut settings. */
+function initShortcuts() {
+  const list = document.getElementById("shortcut-list");
+  const empty = document.getElementById("shortcut-empty");
+  if (list && chrome.commands?.getAll) {
+    chrome.commands.getAll((commands) => {
+      const assigned = (commands || []).filter((command) => command.shortcut && command.description);
+      list.replaceChildren(
+        ...assigned.map((command) => {
+          const item = document.createElement("li");
+          const name = document.createElement("span");
+          name.className = "shortcut-name";
+          name.textContent = command.description;
+          const keys = document.createElement("kbd");
+          keys.textContent = command.shortcut;
+          item.append(name, keys);
+          return item;
+        })
+      );
+      if (empty) empty.hidden = assigned.length > 0;
+    });
+  }
+
+  // chrome:// pages cannot be opened from a plain link in an extension popup.
+  document.getElementById("customize-shortcuts")?.addEventListener("click", () => {
+    chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+  });
+}
+
+/**
+ * Wires the Fast mode toggle; the caution shows only while it is on.
+ * The sidebar picks up changes live via chrome.storage.onChanged.
+ */
+function initFastMode(stored) {
+  const checkbox = document.getElementById("fast-mode");
+  const caution = document.getElementById("fast-mode-caution");
+  if (!checkbox) return;
+  const render = () => {
+    if (caution) caution.hidden = !checkbox.checked;
+  };
+  checkbox.checked = stored[FAST_MODE_KEY] === true;
+  render();
+  checkbox.addEventListener("change", () => {
+    chrome.storage.local.set({ [FAST_MODE_KEY]: checkbox.checked });
+    render();
+  });
+}
+
+/** Applies a theme setting to the popup; Auto resolves from the system setting. */
+function applyPopupTheme(preference) {
+  const dark = preference === "dark" || (preference !== "light" && systemDarkQuery.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+}
+
+/**
+ * Wires the Theme setting. The sidebar picks up changes live via
+ * chrome.storage.onChanged; the popup re-themes immediately.
+ */
+function initTheme(stored) {
+  const radios = [...document.querySelectorAll("input[name='theme']")];
+  let preference = THEMES.includes(stored[THEME_KEY]) ? stored[THEME_KEY] : "auto";
+  radios.forEach((radio) => {
+    radio.checked = radio.value === preference;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      preference = radio.value;
+      chrome.storage.local.set({ [THEME_KEY]: preference });
+      applyPopupTheme(preference);
+    });
+  });
+  applyPopupTheme(preference);
+  systemDarkQuery.addEventListener("change", () => applyPopupTheme(preference));
+}
+
+/**
+ * Switches between the stats view and the Settings view. The popup always opens
+ * on stats; focus moves to the other view's header button for keyboard users.
+ */
+function initViews() {
+  const mainView = document.getElementById("main-view");
+  const settingsView = document.getElementById("settings-view");
+  const openButton = document.getElementById("open-settings");
+  const closeButton = document.getElementById("close-settings");
+  if (!mainView || !settingsView || !openButton || !closeButton) return;
+
+  const showSettings = (show, moveFocus) => {
+    mainView.hidden = show;
+    settingsView.hidden = !show;
+    openButton.setAttribute("aria-expanded", String(show));
+    document.body.scrollTop = 0;
+    if (moveFocus) (show ? closeButton : openButton).focus();
+  };
+  // event.detail is 0 for keyboard activation: only then move focus (avoids a focus
+  // ring appearing after a mouse click).
+  openButton.addEventListener("click", (event) => showSettings(true, event.detail === 0));
+  closeButton.addEventListener("click", (event) => showSettings(false, event.detail === 0));
+  settingsView.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    // Escape returns to stats instead of closing the whole popup.
+    event.preventDefault();
+    showSettings(false, true);
+  });
+}
+
 /** Handles init. */
 async function init() {
+  initViews();
   initStats();
-  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY]);
+  initShortcuts();
+  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY, FAST_MODE_KEY, THEME_KEY]);
 
   const checkbox = document.getElementById("show-extension");
   if (checkbox) initShowExtension(checkbox, stored);
 
+  initTheme(stored);
+  initFastMode(stored);
   initDeleteSettings(stored);
 }
 

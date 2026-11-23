@@ -5,29 +5,24 @@
 
   const { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, AUTO_PROCEED_SECONDS,
     AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS,
-    ROOT_POS_KEY, SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
-    installUndoOfferListeners, keepElInView, makeDraggable,
+    FAST_MODE_KEY, SHOW_EXTENSION_KEY, STRINGS, THEME_KEY, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
+    applyElPosition, installUndoOfferListeners, makeDraggable,
     renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
 
-  let successTimer = null;
   let proceedConfirmationResolver = null;
   let proceedAutoCountdownTimer = null;
+  let focusBeforeConfirm = null;
   const toastQueue = [];
   let toastQueueActive = false;
-  /** Handles flash success. */
+  /** Shows a success message in the status area. */
   function flashSuccess(message = STRINGS.ui.completed) {
-    const badge = document.getElementById("gc-success");
-    if (!badge) return;
+    showToast(message, { type: "success" });
+  }
 
-    const label = badge.querySelector(".gc-success-text");
-    if (label) label.textContent = message;
-
-    badge.classList.add("gc-success-visible");
-    if (successTimer) clearTimeout(successTimer);
-    successTimer = setTimeout(() => {
-      badge.classList.remove("gc-success-visible");
-      successTimer = null;
-    }, 2200);
+  /** Shows an error in the status area (and the console log). */
+  function reportError(message) {
+    setLog(message);
+    showToast(message, { type: "error", durationMs: 5000 });
   }
 
   /** Handles flush toast queue. */
@@ -47,6 +42,9 @@
       if (!next) continue;
 
       toast.textContent = next.message;
+      toast.dataset.type = next.type;
+      // Errors interrupt screen readers; everything else waits politely.
+      toast.setAttribute("role", next.type === "error" ? "alert" : "status");
       toast.classList.add("gc-toast-visible");
       await sleep(next.durationMs);
       toast.classList.remove("gc-toast-visible");
@@ -56,12 +54,16 @@
     toastQueueActive = false;
   }
 
-  /** Handles show toast. */
+  /**
+   * Queues a message for the status area. options.type is "info" (default),
+   * "success", "warning" or "error".
+   */
   function showToast(message, options = {}) {
     const durationMs = options.durationMs || 2400;
+    const type = options.type || "info";
     const toast = document.getElementById("gc-toast");
     if (!toast) return;
-    toastQueue.push({ message, durationMs });
+    toastQueue.push({ message, durationMs, type });
     void flushToastQueue();
   }
 
@@ -124,8 +126,28 @@
   function resolveProceedConfirmation(result) {
     const resolver = proceedConfirmationResolver;
     proceedConfirmationResolver = null;
+    const box = document.getElementById("gc-confirm");
+    const focusWasInPrompt = !!box && box.contains(document.activeElement);
     hideProceedConfirmation();
+    // Give focus back to where it was (if it is still on the page).
+    if (focusWasInPrompt && focusBeforeConfirm?.isConnected) focusBeforeConfirm.focus({ preventScroll: true });
+    focusBeforeConfirm = null;
     if (resolver) resolver(result);
+  }
+
+  /**
+   * Escape inside the panel cancels an open confirmation prompt (same as Stop /
+   * Cancel). Focus is moved into the prompt when it opens, so this covers the
+   * normal keyboard flow without intercepting Escape elsewhere in Gmail.
+   */
+  function installConfirmEscapeListener(root) {
+    root.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !proceedConfirmationResolver) return;
+      // Keep Gmail from also handling this Escape (e.g. closing the open thread).
+      event.preventDefault();
+      event.stopPropagation();
+      resolveProceedConfirmation(false);
+    });
   }
 
   /** Handles ask proceed confirmation. */
@@ -138,10 +160,19 @@
       resolveProceedConfirmation(false);
     }
 
+    const autoProceed = !!options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT);
+    // Fast mode: prompts that would auto-proceed after a countdown proceed at once.
+    // Prompts that never auto-proceed (e.g. Delete) are always shown.
+    if (autoProceed && state.fastMode) {
+      setLog(`Fast mode: auto-proceeding. ${message}`);
+      showToast(STRINGS.toast.fastModeProceeded);
+      return Promise.resolve(true);
+    }
+
     messageEl.textContent = message;
     box.classList.toggle("gc-confirm-danger", !!options.proceedLabel);
     box.classList.add("gc-confirm-visible");
-    if (options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
+    if (autoProceed) {
       startProceedAutoCountdown(AUTO_PROCEED_SECONDS);
     } else {
       stopProceedAutoCountdown();
@@ -151,15 +182,44 @@
     const stopBtn = document.getElementById("gc-confirm-stop");
     if (stopBtn) stopBtn.textContent = options.stopLabel || STRINGS.ui.stop;
 
+    // Move focus to the prompt; destructive prompts default to the safe choice.
+    const active = document.activeElement;
+    focusBeforeConfirm = active && active !== document.body ? active : null;
+    const focusTarget = options.proceedLabel ? stopBtn : document.getElementById("gc-confirm-proceed");
+    focusTarget?.focus({ preventScroll: true });
+
     return new Promise((resolve) => {
       proceedConfirmationResolver = resolve;
     });
   }
 
-  /** Sets working. */
+  /** Sets working. Clears any step / progress text when work ends. */
   function setWorking(next) {
     state.working = next;
+    if (!next) {
+      setWorkingStep("");
+      setProgress("");
+    }
     refreshControlStates();
+  }
+
+  /**
+   * Shows which Execute Selected step is running ("Step 2/4: ...") and highlights
+   * that action's row. Empty text restores the plain "Working..." label.
+   */
+  function setWorkingStep(text, actionId = "") {
+    const label = document.querySelector("#gc-working .gc-working-text");
+    if (label) label.textContent = text || STRINGS.ui.working;
+    document.querySelectorAll(".gc-action-row.gc-row-active").forEach((row) => row.classList.remove("gc-row-active"));
+    if (actionId) document.getElementById(actionId)?.closest(".gc-action-row")?.classList.add("gc-row-active");
+  }
+
+  /** Shows a live progress line under the working label (e.g. "Page 3 · 150 archived"). */
+  function setProgress(text) {
+    const detail = document.querySelector("#gc-working .gc-working-detail");
+    if (!detail) return;
+    detail.textContent = text || "";
+    detail.classList.toggle("gc-hidden", !text);
   }
 
   /** Refreshes all control enabled/disabled states based on current working and email-open state. */
@@ -182,6 +242,9 @@
       checkbox.disabled = working || !emailOpen;
     });
 
+    document.getElementById("gc-root")?.classList.toggle("gc-is-working", working);
+    renderContextBar();
+
     const workingEl = document.getElementById("gc-working");
     if (workingEl) {
       workingEl.classList.toggle("gc-working-visible", working);
@@ -191,8 +254,76 @@
     updateExecuteSelectedState();
   }
 
+  /**
+   * Shows the detected sender (the target of every sender-based action) so it can be
+   * checked before running anything, or explains why actions are disabled.
+   */
+  function renderContextBar() {
+    const bar = document.getElementById("gc-context");
+    if (!bar) return;
+    const sender = state.openSender;
+    // Only rewrite on change: main.js re-runs this from a childList MutationObserver.
+    if (bar.dataset.sender === sender && bar.firstChild) return;
+    bar.dataset.sender = sender;
+    bar.classList.toggle("gc-context-sender", !!sender);
+    if (!sender) {
+      bar.textContent = STRINGS.ui.openEmailHint;
+      bar.removeAttribute("title");
+      return;
+    }
+    bar.replaceChildren(
+      h("span", { class: "gc-context-label" }, STRINGS.ui.senderLabel),
+      h("span", { class: "gc-context-value" }, sender)
+    );
+    bar.title = sender;
+  }
+
+  /** Parses a computed "rgb()/rgba()" color; returns null for transparent or unknown. */
+  function parseOpaqueColor(value) {
+    const match = String(value || "").match(/rgba?\(([^)]+)\)/);
+    if (!match) return null;
+    const [r, g, b, a = 1] = match[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    if ([r, g, b, a].some((n) => Number.isNaN(n)) || a < 0.5) return null;
+    return { r, g, b };
+  }
+
+  /** Returns the first opaque background color at or above el, or null. */
+  function findBackgroundColor(el) {
+    for (let node = el; node && node.nodeType === Node.ELEMENT_NODE; node = node.parentElement) {
+      const color = parseOpaqueColor(getComputedStyle(node).backgroundColor);
+      if (color) return color;
+    }
+    return null;
+  }
+
+  /**
+   * Returns "dark" or "light", following Gmail's own theme. The OS setting is not
+   * used: Gmail's theme is independent of it, and with no opaque background up to
+   * <html> the page shows the browser's white canvas, so that counts as light.
+   */
+  function detectGmailTheme() {
+    const color = findBackgroundColor(document.querySelector("[role='main']")) ||
+      findBackgroundColor(document.body);
+    if (!color) return "light";
+    const luminance = (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
+    return luminance < 0.4 ? "dark" : "light";
+  }
+
+  /**
+   * Applies the theme to the sidebar: the popup's Light / Dark setting, or Gmail's
+   * own theme for Auto (attribute only: not seen by the childList observer).
+   */
+  function applyTheme() {
+    const root = document.getElementById("gc-root");
+    if (!root) return;
+    const preference = state.themePreference;
+    const theme = preference === "light" || preference === "dark" ? preference : detectGmailTheme();
+    if (root.dataset.gcTheme !== theme) root.dataset.gcTheme = theme;
+  }
+
   /** Detects current email open state and refreshes controls. No-op while action in progress. */
   function refreshOpenEmailState() {
+    applyTheme();
     if (state.working) return;
     findOpenEmailSender();
     refreshControlStates();
@@ -251,20 +382,46 @@
     const hasSelections = getSelectedActionIds().length > 0;
     executeButton.dataset.ready = hasSelections ? "true" : "false";
     executeButton.disabled = state.working || !hasSelections;
+    // Execute and Stop share one slot: Stop replaces Execute while a batch runs.
+    executeButton.classList.toggle("gc-hidden", state.batchExecuting);
     if (stopButton) {
       stopButton.disabled = !state.batchExecuting;
+      stopButton.classList.toggle("gc-hidden", !state.batchExecuting);
     }
   }
 
   /** Returns a button's label text, ignoring any shortcut hint span. */
   function getButtonLabel(el, fallback = STRINGS.ui.actionFallback) {
     if (!el) return fallback;
+    if (el.dataset?.label) return el.dataset.label;
     const text = [...el.childNodes]
       .filter((node) => node.nodeType === Node.TEXT_NODE)
       .map((node) => node.textContent)
       .join("")
       .trim();
     return text || fallback;
+  }
+
+  /** Applies the popup's theme setting ("auto", "light" or "dark"). */
+  function setThemePreference(value) {
+    state.themePreference = value === "light" || value === "dark" ? value : "auto";
+    applyTheme();
+  }
+
+  /** Reads the theme setting from storage. */
+  function syncThemeFromStorage() {
+    safeStorageGet([THEME_KEY], (result) => setThemePreference(result?.[THEME_KEY]));
+  }
+
+  /** Applies the Fast mode setting and shows / hides the header badge. */
+  function setFastMode(enabled) {
+    state.fastMode = !!enabled;
+    document.getElementById("gc-fast-badge")?.classList.toggle("gc-hidden", !state.fastMode);
+  }
+
+  /** Reads the Fast mode setting from storage. */
+  function syncFastModeFromStorage() {
+    safeStorageGet([FAST_MODE_KEY], (result) => setFastMode(result?.[FAST_MODE_KEY] === true));
   }
 
   /** Sets extension visibility. */
@@ -288,72 +445,96 @@
 
   /** Builds the floating toggle button. */
   function buildToggle() {
+    // Icon-only by default so it covers less of Gmail; the label slides out on hover/focus.
     return h(
       "button",
-      { id: "gc-toggle", type: "button" },
+      { id: "gc-toggle", type: "button", "aria-label": STRINGS.ui.toggle, title: STRINGS.ui.toggle },
       h("span", { id: "gc-toggle-grip", "aria-hidden": "true" }, "\u283f"),
-      STRINGS.ui.toggle
+      h("span", { class: "gc-toggle-icon", "aria-hidden": "true" }, "\u2709"),
+      h("span", { class: "gc-toggle-label", "aria-hidden": "true" }, STRINGS.ui.toggle)
     );
   }
 
-  /** Builds one checkbox/radio + button action row. */
-  function buildActionRow(actionId, label, inputType = "checkbox", radioName = null) {
-    return h(
-      "div",
-      { class: "gc-action-row" },
-      h("input", {
-        class: "gc-action-checkbox",
-        type: inputType,
-        name: radioName,
-        "data-action-id": actionId,
-        "aria-label": STRINGS.ui.selectActionAria(label)
-      }),
-      h("button", { class: "gc-btn", id: actionId }, label)
-    );
+  /**
+   * Lets a checked radio be cleared by clicking it again (native radios cannot be
+   * unchecked, so a chosen archive/inbox option could otherwise never be turned off).
+   * The pre-click state is captured on mousedown / Space keydown, before the browser
+   * applies the click.
+   */
+  function installRadioDeselect(row, input) {
+    let wasChecked = false;
+    const capture = () => {
+      wasChecked = input.checked;
+    };
+    row.addEventListener("mousedown", capture, true);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === " ") capture();
+    }, true);
+    input.addEventListener("click", () => {
+      if (!wasChecked) return;
+      wasChecked = false;
+      input.checked = false;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
   }
 
-  /** Builds a delete option row: same radio group as archive, hidden until enabled. */
-  function buildDeleteRow(actionId, label) {
-    const row = buildActionRow(actionId, label, "radio", "gc-archive-mode");
-    row.classList.add("gc-delete-row", "gc-hidden");
-    row.querySelector(".gc-btn")?.classList.add("gc-btn-danger");
+  /**
+   * Builds one checkbox/radio + button action row. fullLabel (default: label) names
+   * the action in toasts, tooltips and screen readers when the visible label is short.
+   */
+  function buildActionRow(actionId, label, inputType = "checkbox", radioName = null, fullLabel = label) {
+    const input = h("input", {
+      class: "gc-action-checkbox",
+      type: inputType,
+      name: radioName,
+      "data-action-id": actionId,
+      "aria-label": STRINGS.ui.selectActionAria(fullLabel)
+    });
+    const short = fullLabel !== label;
+    const button = h("button", {
+      class: "gc-btn",
+      id: actionId,
+      "data-label": short ? fullLabel : null,
+      "aria-label": short ? fullLabel : null
+    }, label);
+    // The wrapping label enlarges the click target beyond the 16px input.
+    const check = h("label", { class: "gc-action-check" }, input);
+    const row = h("div", { class: "gc-action-row" }, check, button);
+    if (inputType === "radio") installRadioDeselect(row, input);
     return row;
   }
 
-  /** Builds the next-email target details accordion section. */
-  function buildNextTargetSection() {
-    const labels = STRINGS.ui.nextTargetLabels;
-    const empty = STRINGS.ui.emptyValue;
-    const rows = [
-      ["url", "gc-next-target-url", STRINGS.ui.notCached],
-      ["sender", "gc-next-target-sender", empty],
-      ["subject", "gc-next-target-subject", empty],
-      ["date", "gc-next-target-date", empty],
-      ["threadId", "gc-next-target-thread-id", empty],
-      ["threadToken", "gc-next-target-thread-token", empty],
-      ["pageOffset", "gc-next-target-page-offset", "0"],
-      ["listHash", "gc-next-target-list-hash", empty]
-    ];
+  /**
+   * Builds a compact "Archive: [This page] [All pages]" row. Both options share the
+   * gc-archive-mode radio group. Delete rows are hidden until enabled in the popup.
+   */
+  function buildScopeRow(kind, thisPage, allPages) {
+    const ui = STRINGS.ui;
+    const isDelete = kind === "delete";
+    const options = [[thisPage, ui.scopeThisPage], [allPages, ui.scopeAllPages]].map(([[id, fullLabel], label]) => {
+      const row = buildActionRow(id, label, "radio", "gc-archive-mode", fullLabel);
+      if (isDelete) {
+        row.classList.add("gc-delete-row", "gc-hidden");
+        row.querySelector(".gc-btn")?.classList.add("gc-btn-danger");
+      }
+      return row;
+    });
     return h(
       "div",
-      { id: "gc-next-target-section", class: "gc-section gc-hidden" },
-      h(
-        "details",
-        { id: "gc-next-target-accordion" },
-        h(
-          "summary",
-          { id: "gc-next-target-summary-text", class: "gc-next-target-summary" },
-          STRINGS.ui.notCached
-        ),
-        h(
-          "div",
-          { class: "gc-next-target-grid" },
-          rows.map(([key, id, initial]) => [
-            h("div", { class: "gc-next-target-label" }, labels[key]),
-            h("div", { id, class: "gc-next-target-value" }, initial)
-          ])
-        )
-      )
+      { class: `gc-scope-row${isDelete ? " gc-delete-group gc-hidden" : ""}`, role: "group",
+        "aria-label": isDelete ? ui.scopeDelete : ui.scopeArchive },
+      h("span", { class: "gc-scope-label", "aria-hidden": "true" }, isDelete ? ui.scopeDelete : ui.scopeArchive),
+      options
+    );
+  }
+
+  /** Builds the one-line "Next: sender – subject" preview for Go to Next Email. */
+  function buildNextTargetSection() {
+    return h(
+      "div",
+      { id: "gc-next-target-section", class: "gc-next-target gc-hidden" },
+      h("span", { class: "gc-next-target-label" }, STRINGS.ui.nextTargetLabel),
+      h("span", { id: "gc-next-target-summary-text", class: "gc-next-target-summary" }, STRINGS.ui.notCached)
     );
   }
 
@@ -371,17 +552,29 @@
           { type: "button", id: "gc-minimize", title: ui.minimizeTitle, "aria-label": ui.minimizeAria },
           "\u2013"
         ),
-        h("p", { id: "gc-title" }, ui.title)
+        h("p", { id: "gc-title" }, ui.title),
+        h(
+          "p",
+          { id: "gc-fast-badge", class: "gc-hidden", title: ui.fastModeBadgeTitle },
+          "\u26a1 ",
+          ui.fastModeBadge
+        )
       ),
       h(
         "div",
         { id: "gc-working", "aria-live": "polite", "aria-hidden": "true" },
         h("span", { class: "gc-working-spinner", "aria-hidden": "true" }),
-        h("span", { class: "gc-working-text" }, ui.working)
+        h(
+          "span",
+          { class: "gc-working-lines" },
+          h("span", { class: "gc-working-text" }, ui.working),
+          h("span", { class: "gc-working-detail gc-hidden" })
+        )
       ),
       h(
         "div",
         { id: "gc-body" },
+        h("p", { id: "gc-context", "aria-live": "polite" }),
         h(
           "div",
           { class: "gc-section gc-section-prepare" },
@@ -393,11 +586,13 @@
           "div",
           { class: "gc-section gc-section-archive" },
           h("p", { class: "gc-section-title", id: "gc-archive-section-title" }, ui.sectionArchive),
-          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE, "radio", "gc-archive-mode"),
-          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES, "radio", "gc-archive-mode"),
+          buildScopeRow("archive",
+            [ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE],
+            [ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES]),
           // Opt-in (popup toggle); hidden rows are never selected (see getSelectedActionIds).
-          buildDeleteRow(ACTION_BUTTON_IDS.DELETE_THIS_PAGE, LABELS.DELETE_THIS_PAGE),
-          buildDeleteRow(ACTION_BUTTON_IDS.DELETE_ALL_PAGES, LABELS.DELETE_ALL_PAGES)
+          buildScopeRow("delete",
+            [ACTION_BUTTON_IDS.DELETE_THIS_PAGE, LABELS.DELETE_THIS_PAGE],
+            [ACTION_BUTTON_IDS.DELETE_ALL_PAGES, LABELS.DELETE_ALL_PAGES])
         ),
         h(
           "div",
@@ -405,6 +600,7 @@
           h("p", { class: "gc-section-title" }, ui.sectionInbox),
           buildActionRow(ACTION_BUTTON_IDS.GO_TO_INBOX, LABELS.GO_TO_INBOX, "radio", "gc-inbox-mode"),
           buildActionRow(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE, LABELS.GO_TO_NEXT_PAGE, "radio", "gc-inbox-mode"),
+          buildNextTargetSection(),
           h(
             "div",
             { class: "gc-action-row", style: "display:flex;justify-content:center;" },
@@ -415,43 +611,56 @@
             )
           )
         ),
-        buildNextTargetSection(),
         // Shortcut hint spans/titles are added by applyShortcutHints().
         h(
           "button",
           { class: "gc-btn gc-btn-execute", id: "gc-execute-selected", "data-ready": "false", disabled: true },
           ui.executeSelected
         ),
-        h("button", { class: "gc-btn gc-btn-stop", id: "gc-stop-execution", disabled: true }, ui.stopExecution)
+        h("button", { class: "gc-btn gc-btn-stop gc-hidden", id: "gc-stop-execution", disabled: true }, ui.stopExecution)
       ),
+      // Single status area: confirmation prompts, messages and undo offers.
       h(
         "div",
-        { id: "gc-confirm", role: "alert", "aria-live": "assertive" },
-        h("p", { id: "gc-confirm-message" }),
+        { id: "gc-status" },
         h(
           "div",
-          { id: "gc-confirm-actions" },
-          h("button", { type: "button", id: "gc-confirm-proceed" }, ui.proceed),
-          h("button", { type: "button", id: "gc-confirm-stop" }, ui.stop)
+          { id: "gc-confirm", role: "alert", "aria-live": "assertive" },
+          h("p", { id: "gc-confirm-message" }),
+          h(
+            "div",
+            { id: "gc-confirm-actions" },
+            h("button", { type: "button", id: "gc-confirm-proceed" }, ui.proceed),
+            h("button", { type: "button", id: "gc-confirm-stop" }, ui.stop)
+          )
+        ),
+        h("div", { id: "gc-toast", role: "status", "aria-live": "polite", "data-type": "info" }),
+        h(
+          "div",
+          { id: "gc-undo", role: "status", "aria-live": "polite" },
+          h("span", { id: "gc-undo-message" }),
+          h("button", { type: "button", id: "gc-undo-action" }, ui.undoArchive),
+          h("button", { type: "button", id: "gc-undo-dismiss", "aria-label": ui.undoDismissAria }, "\u00d7")
         )
-      ),
-      h(
-        "div",
-        { id: "gc-success", "aria-live": "polite" },
-        h("span", { class: "gc-success-icon", "aria-hidden": "true" }, "\u2713"),
-        h("span", { class: "gc-success-text" }, ui.completed)
-      ),
-      h("div", { id: "gc-log" }, ui.ready),
-      h("div", { id: "gc-toast", role: "status", "aria-live": "polite" }),
-      h(
-        "div",
-        { id: "gc-undo", role: "status", "aria-live": "polite" },
-        h("span", { id: "gc-undo-message" }),
-        h("button", { type: "button", id: "gc-undo-action" }, ui.undoArchive),
-        h("button", { type: "button", id: "gc-undo-dismiss", "aria-label": ui.undoDismissAria }, "\u00d7")
       )
     );
     return root;
+  }
+
+  /**
+   * Opens the panel anchored to the toggle: same right edge, vertically centred on
+   * the toggle (which can be dragged up and down), clamped to the viewport.
+   */
+  function openPanelAtToggle(root, toggle) {
+    // Measure the toggle before opening: the open panel hides it (gc-toggle-covered).
+    const anchor = toggle.getBoundingClientRect();
+    root.classList.remove("gc-hidden");
+    const margin = 8;
+    const centred = anchor.top + anchor.height / 2 - root.offsetHeight / 2;
+    const maxTop = Math.max(margin, window.innerHeight - root.offsetHeight - margin);
+    const top = Math.min(Math.max(centred, margin), maxTop);
+    const left = anchor.right - root.offsetWidth;
+    applyElPosition(root, top, left);
   }
 
   /** Mounts sidebar. */
@@ -472,9 +681,19 @@
     document.body.appendChild(root);
 
     toggle.addEventListener("click", () => {
-      root.classList.toggle("gc-hidden");
-      keepElInView(root);
+      if (root.classList.contains("gc-hidden")) {
+        openPanelAtToggle(root, toggle);
+      } else {
+        root.classList.add("gc-hidden");
+      }
     });
+    // Hide the toggle while the panel is open (both sit at the right-middle edge).
+    // Watching the class covers every path: toggle, minimize, popup hide setting.
+    const syncToggleCovered = () => {
+      toggle.classList.toggle("gc-toggle-covered", !root.classList.contains("gc-hidden"));
+    };
+    new MutationObserver(syncToggleCovered).observe(root, { attributes: true, attributeFilter: ["class"] });
+    syncToggleCovered();
 
     document.getElementById("gc-minimize")?.addEventListener("click", () => {
       root.classList.add("gc-hidden");
@@ -517,25 +736,30 @@
       resolveProceedConfirmation(false);
     });
     installUndoOfferListeners();
+    installConfirmEscapeListener(root);
     GC.syncDeleteFeatureFromStorage();
+    syncFastModeFromStorage();
+    syncThemeFromStorage();
     restoreActionCheckboxState();
     GC.loadShortcutHints();
     renderNextEmailTargetSection();
     findOpenEmailSender();
     refreshControlStates();
+    applyTheme();
 
     makeDraggable(toggle, null, null, "y");
-    makeDraggable(root, ROOT_POS_KEY, document.getElementById("gc-header"));
+    // No saved position: the panel always opens next to the toggle (openPanelAtToggle).
+    makeDraggable(root, null, document.getElementById("gc-header"));
 
     setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
     syncExtensionVisibilityFromStorage();
   }
 
-  Object.assign(GC, { askProceedConfirmation, buildActionRow, buildDeleteRow, buildNextTargetSection, buildSidebarRoot,
+  Object.assign(GC, { applyTheme, askProceedConfirmation, detectGmailTheme, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
-    refreshOpenEmailState, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
-    setExtensionVisibility, setProceedButtonLabel, setWorking, showToast, startProceedAutoCountdown,
+    refreshOpenEmailState, renderContextBar, reportError, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
+    setExtensionVisibility, setFastMode, setThemePreference, setProceedButtonLabel, setProgress, setWorking, setWorkingStep, showToast, startProceedAutoCountdown,
     stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, toastQueue,
     updateExecuteSelectedState });
 })();

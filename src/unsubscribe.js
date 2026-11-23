@@ -211,7 +211,7 @@
         }
         return;
       }
-      setLog(message);
+      GC.reportError(message);
     } finally {
       if (manageWorking) GC.setWorking(false);
     }

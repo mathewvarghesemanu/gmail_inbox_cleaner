@@ -113,8 +113,7 @@
       setLog("Undo sent to Gmail.");
       GC.showToast(bulkKind === "delete" ? "Delete undone" : "Archive undone");
     } catch (error) {
-      setLog(`Undo failed: ${error?.message || error}`);
-      GC.showToast("Undo failed");
+      GC.reportError(`Undo failed: ${error?.message || error}`);
     }
   }
 
@@ -300,7 +299,7 @@
           const fingerprint = getFirstRowFingerprint();
           return !!(fingerprint && fingerprint !== beforeFingerprint);
         }, { timeout: 2000, interval: 150, shouldAbort: GC.shouldStopExecution });
-        if (refreshed) await sleep(300);
+        if (refreshed) await GC.settle(300);
 
         if (!getThreadRows().length) break;
         const afterFingerprint = getFirstRowFingerprint();
@@ -323,11 +322,9 @@
         return;
       }
       setLog(`Moved ${cycles} page(s) from ${expectedSender} back to Inbox.`);
-      GC.flashSuccess("Restored");
-      GC.showToast("Undo all complete");
+      GC.flashSuccess("Undo all complete");
     } catch (error) {
-      setLog(`Undo all failed: ${error?.message || error}`);
-      GC.showToast("Undo all failed");
+      GC.reportError(`Undo all failed: ${error?.message || error}`);
     } finally {
       // The restored emails are back in the Inbox: drop the sender lock and the
       // "-in:inbox" search so the next run on this sender starts fresh.
