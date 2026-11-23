@@ -181,8 +181,14 @@
   function canUseLockedSearchForDiscovery(expectedSender) {
     const lockedQuery = normalizeQuery(state.lockedQuery || state.query || "");
     if (!lockedQuery) return false;
+    // A search scoped to one sender (from:x) can never contain a *different*
+    // sender's email, and a -in:inbox search (e.g. left behind by Undo all) no
+    // longer lists inbox mail. Discovery must use the inbox in both cases,
+    // otherwise re-running a sender after Undo finds no next email.
+    if (extractSenderFromQuery(lockedQuery)) return false;
+    if (/(^|\s)-in:inbox(\s|$)/.test(lockedQuery)) return false;
     if (!expectedSender) return true;
-    const lockedSender = normalizeEmail(state.lockedSender || extractSenderFromQuery(lockedQuery));
+    const lockedSender = normalizeEmail(state.lockedSender);
     if (!lockedSender) return false;
     return senderSignalMatchesExpected(lockedSender, expectedSender);
   }

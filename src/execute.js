@@ -78,10 +78,27 @@
     announceEmailTargetStatus("Email target before run");
   }
 
+  /**
+   * Prepares the next-email target, but never blocks the rest of the batch:
+   * if no target can be found, Go to Next Email is dropped and the other
+   * selected actions (unsubscribe, select, archive) still run.
+   */
+  async function prepareNextEmailTargetOrSkip(selectedActionIds) {
+    try {
+      await prepareNextEmailTargetForBatchSelection(selectedActionIds);
+      return selectedActionIds;
+    } catch (error) {
+      if (!selectedActionIds.includes(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE)) throw error;
+      setLog(`${error?.message || error} Continuing without Go to Next Email.`);
+      showToast(STRINGS.toast.nextTargetUnavailable, { durationMs: 3500 });
+      return selectedActionIds.filter((id) => id !== ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
+    }
+  }
+
   /** Executes selected actions. */
   async function executeSelectedActions() {
     if (state.working || state.batchExecuting) return;
-    const selectedActionIds = getSelectedActionIds();
+    let selectedActionIds = getSelectedActionIds();
     if (!selectedActionIds.length) {
       updateExecuteSelectedState();
       return;
@@ -90,8 +107,9 @@
     state.batchExecuting = true;
     state.stopExecutionRequested = false;
     setWorking(true);
+    let failureMessage = "";
     try {
-      await prepareNextEmailTargetForBatchSelection(selectedActionIds);
+      selectedActionIds = await prepareNextEmailTargetOrSkip(selectedActionIds);
       if (
         selectedActionIds.length === 1 &&
         selectedActionIds[0] === ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE
@@ -114,9 +132,18 @@
         setLog("Execution stopped.");
         showToast(STRINGS.toast.executionStopped);
       }
+    } catch (error) {
+      // Surface the reason instead of letting the finally block overwrite it
+      // with "Execution complete" (which looked like nothing happened).
+      failureMessage = error?.message || String(error);
+      showToast(STRINGS.toast.executionFailed, { durationMs: 3500 });
     } finally {
       clearCachedNextEmailTarget();
-      setLog("Execution complete. Cleared cached next email target.");
+      setLog(
+        failureMessage
+          ? `Execution failed: ${failureMessage}`
+          : "Execution complete. Cleared cached next email target."
+      );
       state.batchExecuting = false;
       state.stopExecutionRequested = false;
       setWorking(false);
@@ -164,7 +191,7 @@
     return false;
   }
 
-  Object.assign(GC, { executeSelectedActions, getActionHandler, prepareNextEmailTargetForBatchSelection,
+  Object.assign(GC, { executeSelectedActions, getActionHandler, prepareNextEmailTargetForBatchSelection, prepareNextEmailTargetOrSkip,
     requestStopExecution, runActionByButtonId, shouldPrepareNextEmailTargetForBatch, shouldStopExecution,
     shouldWaitBetweenActions, triggerExecuteSelected, waitForListToLoadForBatchStep });
 })();
