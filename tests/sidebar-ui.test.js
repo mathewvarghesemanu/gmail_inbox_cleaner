@@ -75,3 +75,19 @@ describe("context bar", () => {
     expect(bar.querySelector(".gc-context-value").textContent.toLowerCase()).toBe("news@shop.example");
   });
 });
+
+describe("next email preview", () => {
+  it("shows one line with sender and subject, without internal ids", () => {
+    const GC = load();
+    enableInputs();
+    const goNext = input(GC.ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
+    goNext.checked = true;
+    GC.state.nextTarget = { ...GC.createEmptyNextTarget(), url: "https://mail.google.com/#inbox/x",
+      sender: "a@b.example", subject: "Hello", threadToken: "SECRET-TOKEN" };
+    GC.renderNextEmailTargetSection();
+    const section = document.getElementById("gc-next-target-section");
+    expect(section.classList.contains("gc-hidden")).toBe(false);
+    expect(section.textContent).toContain("a@b.example – Hello");
+    expect(section.textContent).not.toContain("SECRET-TOKEN");
+  });
+});

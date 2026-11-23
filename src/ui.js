@@ -368,40 +368,13 @@
     return row;
   }
 
-  /** Builds the next-email target details accordion section. */
+  /** Builds the one-line "Next: sender – subject" preview for Go to Next Email. */
   function buildNextTargetSection() {
-    const labels = STRINGS.ui.nextTargetLabels;
-    const empty = STRINGS.ui.emptyValue;
-    const rows = [
-      ["url", "gc-next-target-url", STRINGS.ui.notCached],
-      ["sender", "gc-next-target-sender", empty],
-      ["subject", "gc-next-target-subject", empty],
-      ["date", "gc-next-target-date", empty],
-      ["threadId", "gc-next-target-thread-id", empty],
-      ["threadToken", "gc-next-target-thread-token", empty],
-      ["pageOffset", "gc-next-target-page-offset", "0"],
-      ["listHash", "gc-next-target-list-hash", empty]
-    ];
     return h(
       "div",
-      { id: "gc-next-target-section", class: "gc-section gc-hidden" },
-      h(
-        "details",
-        { id: "gc-next-target-accordion" },
-        h(
-          "summary",
-          { id: "gc-next-target-summary-text", class: "gc-next-target-summary" },
-          STRINGS.ui.notCached
-        ),
-        h(
-          "div",
-          { class: "gc-next-target-grid" },
-          rows.map(([key, id, initial]) => [
-            h("div", { class: "gc-next-target-label" }, labels[key]),
-            h("div", { id, class: "gc-next-target-value" }, initial)
-          ])
-        )
-      )
+      { id: "gc-next-target-section", class: "gc-next-target gc-hidden" },
+      h("span", { class: "gc-next-target-label" }, STRINGS.ui.nextTargetLabel),
+      h("span", { id: "gc-next-target-summary-text", class: "gc-next-target-summary" }, STRINGS.ui.notCached)
     );
   }
 
@@ -454,6 +427,7 @@
           h("p", { class: "gc-section-title" }, ui.sectionInbox),
           buildActionRow(ACTION_BUTTON_IDS.GO_TO_INBOX, LABELS.GO_TO_INBOX, "radio", "gc-inbox-mode"),
           buildActionRow(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE, LABELS.GO_TO_NEXT_PAGE, "radio", "gc-inbox-mode"),
+          buildNextTargetSection(),
           h(
             "div",
             { class: "gc-action-row", style: "display:flex;justify-content:center;" },
@@ -464,7 +438,6 @@
             )
           )
         ),
-        buildNextTargetSection(),
         // Shortcut hint spans/titles are added by applyShortcutHints().
         h(
           "button",

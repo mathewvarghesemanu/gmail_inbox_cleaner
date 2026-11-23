@@ -65,19 +65,8 @@
       deleteConfirm: "Delete",
       cancel: "Cancel",
       undoDismissAria: "Dismiss undo",
-      notCached: "Not cached yet.",
-      cachedTargetReady: "Cached target ready",
-      emptyValue: "-",
-      nextTargetLabels: {
-        url: "URL",
-        sender: "Sender",
-        subject: "Subject",
-        date: "Date",
-        threadId: "Thread ID",
-        threadToken: "Thread Token",
-        pageOffset: "Page Offset",
-        listHash: "List Context"
-      }
+      notCached: "Picked when the run starts",
+      nextTargetLabel: "Next"
     },
     toast: {
       elapsed: (label, elapsed) => `${label}: ${elapsed} elapsed`,
