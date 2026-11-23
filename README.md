@@ -32,13 +32,33 @@ gmail-cleaner-extension/
 - `Go to Inbox`
 - `Go to Next Email`
 - `Show Archived` — searches for archived emails from current sender
-- `Execute Selected` — also bound to a keyboard shortcut (`Ctrl+Shift+E`, `Command+Shift+E` on macOS); rebind it at `chrome://extensions/shortcuts`
+- `Execute Selected`
 - `Stop Execution`
+- Keyboard shortcuts (see below), shown on the sidebar buttons
+- Popup `Stats` — today / all-time counts of senders unsubscribed, conversations archived, pages archived and batches run, with a `Reset stats` button. Stored only in `chrome.storage.local` (per-day totals kept for 30 days); never leaves the device.
 - Draggable sidebar panel — drag by header, position persists across sessions
 - Draggable toggle button — slides along Y-axis, grip icon on hover
 - Buttons and checkboxes disable automatically when no email is open or an action is running
 - Popup setting to show or hide the in-page extension UI
 - Popup setting for `Max pages to scan` when preparing next-email targeting
+
+## Keyboard shortcuts
+
+Chrome allows at most four default shortcuts per extension. Rebind any of these, or bind the unassigned ones, at `chrome://extensions/shortcuts`.
+
+| Command | Windows / Linux | macOS |
+| --- | --- | --- |
+| Execute Selected | `Ctrl+Shift+E` | `Command+Shift+E` |
+| Unsubscribe Open Email | `Ctrl+Shift+U` | `Command+Shift+U` |
+| Go to Next Email | `Ctrl+Shift+Y` | `Command+Shift+Y` |
+| Select Like Open Email, then Archive All Pages | `Ctrl+Shift+K` | `Command+Shift+K` |
+| Select All Emails Like Open Email | unassigned | unassigned |
+| Archive Listed Emails in This Page | unassigned | unassigned |
+| Archive Listed Emails in All Pages | unassigned | unassigned |
+| Go to Inbox | unassigned | unassigned |
+| Stop Execution | unassigned | unassigned |
+
+Shortcuts follow the same rules as the buttons: they are ignored while the sidebar is hidden, refused while an action is running (except Stop Execution), and most need an open email.
 
 ## Installation (local)
 
