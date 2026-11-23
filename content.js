@@ -465,22 +465,26 @@
     }
   }
 
+  /**
+   * Polls predicate until it returns a truthy value (which is returned) or the timeout
+   * elapses (returns null). shouldAbort() is checked before each poll; when it returns
+   * true the wait ends early with null. The predicate gets one last check at timeout.
+   */
+  async function waitFor(predicate, { timeout = 5000, interval = 100, shouldAbort = null } = {}) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (shouldAbort && shouldAbort()) return null;
+      const value = predicate();
+      if (value) return value;
+      await sleep(interval);
+    }
+    if (shouldAbort && shouldAbort()) return null;
+    return predicate() || null;
+  }
+
   /** Waits for selector. */
   function waitForSelector(selector, timeout = 7000) {
-    return new Promise((resolve) => {
-      const start = Date.now();
-      const timer = setInterval(() => {
-        const el = document.querySelector(selector);
-        if (el) {
-          clearInterval(timer);
-          resolve(el);
-        }
-        if (Date.now() - start > timeout) {
-          clearInterval(timer);
-          resolve(null);
-        }
-      }, 150);
-    });
+    return waitFor(() => document.querySelector(selector), { timeout, interval: 150 });
   }
 
   /** Sets log. */
@@ -1171,14 +1175,11 @@
 
   /** Waits for thread rows. */
   async function waitForThreadRows(timeout = 12000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      if (shouldStopExecution()) return [];
-      const rows = getThreadRows();
-      if (rows.length > 0) return rows;
-      await sleep(140);
-    }
-    return [];
+    const rows = await waitFor(() => {
+      const found = getThreadRows();
+      return found.length > 0 ? found : null;
+    }, { timeout, interval: 140, shouldAbort: shouldStopExecution });
+    return rows || [];
   }
 
   /** Handles row to item. */
@@ -1353,12 +1354,11 @@
 
   /** Waits for Gmail to route away from a known URL. */
   async function waitForUrlChange(previousUrl, timeout = 2000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      if (location.href !== previousUrl) return true;
-      if (shouldStopExecution()) break;
-      await sleep(60);
-    }
+    await waitFor(() => location.href !== previousUrl, {
+      timeout,
+      interval: 60,
+      shouldAbort: shouldStopExecution
+    });
     return location.href !== previousUrl;
   }
 
@@ -1537,7 +1537,12 @@
       robustClick(label);
       dispatchMenuClickSequence(label);
     }
-    await sleep(220);
+    await waitFor(() => isMasterChecked(getSelectionToolbar()), { timeout: 220, interval: 40 });
+  }
+
+  /** Returns the toolbar used for selection (mailbox toolbar, list container, or document). */
+  function getSelectionToolbar() {
+    return getMailboxToolbar() || document.querySelector(SELECTORS.threadListContainer) || document;
   }
 
   /** Returns selection debug state. */
@@ -1554,7 +1559,7 @@
   async function tryClickAllMenuOption(selectButton, attempts = 4) {
     for (let i = 0; i < attempts; i += 1) {
       robustClick(selectButton);
-      await sleep(260);
+      await waitFor(() => findOpenSelectMenu() && findAllMenuItem(), { timeout: 260, interval: 40 });
       const menu = findOpenSelectMenu();
       if (!menu) continue;
 
@@ -1575,11 +1580,12 @@
       const inner = master?.querySelector(SELECTORS.masterCheckboxInner);
       if (inner) {
         robustClick(inner);
+        // Gmail settle time: the master click below follows unconditionally.
         await sleep(220);
       }
       if (master) {
         robustClick(master);
-        await sleep(280);
+        await waitFor(() => isMasterChecked(toolbar), { timeout: 280, interval: 40 });
       }
     }
     return findMasterCheckbox(toolbar)?.getAttribute("aria-checked") === "true";
@@ -1588,7 +1594,7 @@
   /** Handles select all matching search. */
   async function selectAllMatchingSearch(options = {}) {
     const { includeAllInSearch = true } = options;
-    const toolbar = getMailboxToolbar() || document.querySelector(SELECTORS.threadListContainer) || document;
+    const toolbar = getSelectionToolbar();
     const selectButton = findSelectButton(toolbar);
 
     if (!selectButton) {
@@ -1601,7 +1607,7 @@
       const master = findMasterCheckbox(toolbar);
       if (master) {
         robustClick(master);
-        await sleep(280);
+        await waitFor(() => isMasterChecked(toolbar), { timeout: 280, interval: 40 });
       }
     }
     void getSelectionDebugState;
@@ -1612,12 +1618,12 @@
       if (menu) {
         menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
         menu.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true, cancelable: true }));
-        await sleep(250);
+        await waitFor(() => isMasterChecked(toolbar), { timeout: 250, interval: 40 });
       }
 
       // Final fallback: Gmail keyboard shortcut for "select all" (requires shortcuts enabled).
       triggerKeySequence(["*", "a"]);
-      await sleep(350);
+      await waitFor(() => isMasterChecked(toolbar), { timeout: 350, interval: 40 });
     }
 
     const selectedAfterFallback = isMasterChecked(toolbar) || await ensureMasterChecked(toolbar, 5);
@@ -1633,6 +1639,7 @@
 
     if (selectAllSearchLink) {
       robustClick(selectAllSearchLink);
+      // No reliable DOM signal for "all in search" selection; give Gmail settle time.
       await sleep(500);
       state.selectedConversationsText = "All conversations in search selected.";
       return true;
@@ -1656,17 +1663,14 @@
 
   /** Waits for selection to settle. */
   async function waitForSelectionToSettle(timeout = 5000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      const toolbar = getMailboxToolbar() || document.querySelector(SELECTORS.threadListContainer) || document;
-      const masterChecked = isMasterChecked(toolbar);
-      if (masterChecked && hasAnySelectedConversationRow()) {
-        await sleep(180);
-        return true;
-      }
-      await sleep(150);
-    }
-    return false;
+    const settled = await waitFor(
+      () => isMasterChecked(getSelectionToolbar()) && hasAnySelectedConversationRow(),
+      { timeout, interval: 150 }
+    );
+    if (!settled) return false;
+    // Short settle so Gmail finishes applying the selection before archive.
+    await sleep(180);
+    return true;
   }
 
   /** Archives selected. */
@@ -1689,14 +1693,19 @@
       }
     );
 
+    // When rows were visibly selected, finish as soon as Gmail clears them (archived);
+    // otherwise there is no signal to watch, so keep the full wait.
+    const hadSelection = hasAnySelectedConversationRow();
     if (archiveControl) {
       robustClick(archiveControl);
-      await sleep(700);
-      return;
+    } else {
+      triggerKeySequence(["e"]);
     }
-
-    triggerKeySequence(["e"]);
-    await sleep(700);
+    if (hadSelection) {
+      await waitFor(() => !hasAnySelectedConversationRow(), { timeout: 700, interval: 70 });
+    } else {
+      await sleep(700);
+    }
   }
 
   /** Checks whether disabled control. */
@@ -1762,16 +1771,13 @@
 
   /** Waits for page change. */
   async function waitForPageChange(previousFingerprint, timeout = 12000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      if (shouldStopExecution()) return false;
+    const changed = await waitFor(() => {
       const currentFingerprint = getFirstRowFingerprint();
       const rows = getThreadRows();
       if (rows.length === 0) return true;
-      if (currentFingerprint && currentFingerprint !== previousFingerprint) return true;
-      await sleep(250);
-    }
-    return false;
+      return !!(currentFingerprint && currentFingerprint !== previousFingerprint);
+    }, { timeout, interval: 250, shouldAbort: shouldStopExecution });
+    return !!changed;
   }
 
   /** Navigates next results page. */
@@ -1781,7 +1787,11 @@
     if (!nextButton) return false;
     const before = getFirstRowFingerprint();
     robustClick(nextButton);
-    await sleep(500);
+    // Wait until the new page's rows render (a transient empty list is not enough).
+    await waitFor(() => {
+      const fingerprint = getFirstRowFingerprint();
+      return !!(fingerprint && fingerprint !== before);
+    }, { timeout: 500, interval: 50, shouldAbort: shouldStopExecution });
     if (shouldStopExecution()) return false;
     const moved = await waitForPageChange(before, 12000);
     if (moved) {
@@ -2718,14 +2728,14 @@
       const confirm = findUnsubscribeConfirmButton();
       if (confirm) {
         robustClick(confirm);
-        await sleep(120);
+        await waitFor(() => !confirm.isConnected || !isVisible(confirm), { timeout: 120, interval: 30 });
         continue;
       }
 
       const dismiss = findUnsubscribeFollowupDismissButton();
       if (dismiss) {
         robustClick(dismiss);
-        await sleep(120);
+        await waitFor(() => !dismiss.isConnected || !isVisible(dismiss), { timeout: 120, interval: 30 });
         continue;
       }
 
@@ -2735,13 +2745,7 @@
 
   /** Waits for unsubscribe confirm. */
   async function waitForUnsubscribeConfirm(timeout = 5000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      const btn = findUnsubscribeConfirmButton();
-      if (btn) return btn;
-      await sleep(150);
-    }
-    return null;
+    return waitFor(() => findUnsubscribeConfirmButton(), { timeout, interval: 150 });
   }
 
   /** Checks whether has visible unsubscribe dialog. */
@@ -2751,12 +2755,7 @@
 
   /** Waits for unsubscribe dialog to clear. */
   async function waitForUnsubscribeDialogToClear(timeout = 1800) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      if (!hasVisibleUnsubscribeDialog()) return true;
-      await sleep(100);
-    }
-    return !hasVisibleUnsubscribeDialog();
+    return !!(await waitFor(() => !hasVisibleUnsubscribeDialog(), { timeout, interval: 100 }));
   }
 
   /** Handles robust click. */
@@ -2912,7 +2911,14 @@
         await waitForSelectionToSettle();
         setLog(`Cycle ${cycles + 1}: archiving...`);
         await archiveSelected();
-        await sleep(2000);
+        // Wait (up to the previous fixed 2s) for Gmail to repopulate the list with
+        // different rows; then a short settle before the next cycle reads it.
+        const refreshed = await waitFor(() => {
+          if (!getThreadRows().length) return false;
+          const fingerprint = getFirstRowFingerprint();
+          return !!(fingerprint && fingerprint !== beforeFingerprint);
+        }, { timeout: 2000, interval: 150, shouldAbort: shouldStopExecution });
+        if (refreshed) await sleep(300);
 
         cycles += 1;
 
