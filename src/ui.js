@@ -627,6 +627,13 @@
       root.classList.toggle("gc-hidden");
       keepElInView(root);
     });
+    // Hide the toggle while the panel is open (both sit at the right-middle edge).
+    // Watching the class covers every path: toggle, minimize, popup hide setting.
+    const syncToggleCovered = () => {
+      toggle.classList.toggle("gc-toggle-covered", !root.classList.contains("gc-hidden"));
+    };
+    new MutationObserver(syncToggleCovered).observe(root, { attributes: true, attributeFilter: ["class"] });
+    syncToggleCovered();
 
     document.getElementById("gc-minimize")?.addEventListener("click", () => {
       root.classList.add("gc-hidden");

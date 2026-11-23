@@ -1,9 +1,11 @@
 #gc-root {
   position: fixed;
-  top: 88px;
-  right: 20px;
+  /* Default placement: right edge, vertically centred (same spot as the toggle). */
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
   width: 320px;
-  max-height: calc(100vh - 96px);
+  max-height: calc(100vh - 48px);
   background: #ffffff;
   border: 1px solid #dadce0;
   border-radius: 12px;
@@ -566,6 +568,11 @@
 }
 
 #gc-root.gc-hidden {
+  display: none;
+}
+
+/* The open panel covers the toggle's spot; the header's minimize button reopens it. */
+#gc-toggle.gc-toggle-covered {
   display: none;
 }
 

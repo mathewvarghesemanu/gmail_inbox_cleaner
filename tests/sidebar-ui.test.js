@@ -237,3 +237,21 @@ describe("theme", () => {
     delete window.matchMedia;
   });
 });
+
+describe("panel and toggle placement", () => {
+  it("hides the toggle while the panel is open and shows it again on minimize", async () => {
+    load();
+    const toggle = document.getElementById("gc-toggle");
+    const root = document.getElementById("gc-root");
+    expect(toggle.classList.contains("gc-toggle-covered")).toBe(false);
+
+    toggle.click();
+    await Promise.resolve();
+    expect(root.classList.contains("gc-hidden")).toBe(false);
+    expect(toggle.classList.contains("gc-toggle-covered")).toBe(true);
+
+    document.getElementById("gc-minimize").click();
+    await Promise.resolve();
+    expect(toggle.classList.contains("gc-toggle-covered")).toBe(false);
+  });
+});
