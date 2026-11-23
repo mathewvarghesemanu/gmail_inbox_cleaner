@@ -8,15 +8,8 @@
     lockedSender: "",
     lockedQuery: "",
     selectedConversationsText: "",
-    cachedNextEmailUrl: "",
-    cachedNextEmailSender: "",
-    cachedNextEmailSubject: "",
-    cachedNextEmailDate: "",
-    cachedNextEmailThreadId: "",
-    cachedNextEmailThreadToken: "",
-    cachedNextEmailPageOffset: 0,
-    cachedNextEmailListHash: "",
-    cachedNextEmailSourceUrl: "",
+    /** Cached "Go to Next Email" target (see createEmptyNextTarget for fields). */
+    nextTarget: createEmptyNextTarget(),
     maxScanPages: 1,
     working: false,
     batchExecuting: false,
@@ -495,18 +488,68 @@
     console.log(`[GmailCleaner] ${msg}`);
   }
 
-  /** Returns cached next email payload. */
-  function getCachedNextEmailPayload() {
+  /** Returns an empty next-email target. */
+  function createEmptyNextTarget() {
     return {
-      url: state.cachedNextEmailUrl || "",
-      sender: state.cachedNextEmailSender || "",
-      subject: state.cachedNextEmailSubject || "",
-      date: state.cachedNextEmailDate || "",
-      threadId: state.cachedNextEmailThreadId || "",
-      threadToken: state.cachedNextEmailThreadToken || "",
-      pageOffset: Number.isFinite(state.cachedNextEmailPageOffset) ? state.cachedNextEmailPageOffset : 0,
-      listHash: state.cachedNextEmailListHash || "",
-      sourceUrl: state.cachedNextEmailSourceUrl || "",
+      url: "",
+      sender: "",
+      subject: "",
+      date: "",
+      threadId: "",
+      threadToken: "",
+      pageOffset: 0,
+      listHash: "",
+      sourceUrl: ""
+    };
+  }
+
+  /** Persisted cache payload version; v1 was the flat shape {url, sender, ..., updatedAt}. */
+  const NEXT_TARGET_CACHE_VERSION = 2;
+
+  /**
+   * Extracts the raw target fields from a stored cache payload.
+   * Accepts both v2 ({ version, nextTarget: {...}, updatedAt }) and the legacy flat v1 shape.
+   */
+  function unwrapStoredNextTarget(cachedPayload) {
+    if (!cachedPayload || typeof cachedPayload !== "object") return null;
+    if (cachedPayload.nextTarget && typeof cachedPayload.nextTarget === "object") {
+      return cachedPayload.nextTarget;
+    }
+    return cachedPayload;
+  }
+
+  /** Builds a normalized state.nextTarget from a stored cache payload (v1 or v2). */
+  function nextTargetFromStored(cachedPayload) {
+    const cached = unwrapStoredNextTarget(cachedPayload) || {};
+    return {
+      url: String(cached.url || ""),
+      sender: normalizeEmail(cached.sender || ""),
+      subject: String(cached.subject || "").trim(),
+      date: String(cached.date || "").trim(),
+      threadId: normalizeFingerprintText(cached.threadId || ""),
+      threadToken: normalizeFingerprintText(cached.threadToken || ""),
+      pageOffset: Math.max(0, Number.parseInt(String(cached.pageOffset ?? ""), 10) || 0),
+      listHash: String(cached.listHash || "").trim().toLowerCase(),
+      sourceUrl: normalizeComparableUrl(cached.sourceUrl || "")
+    };
+  }
+
+  /** Returns cached next email payload (v2 shape) for storage. */
+  function getCachedNextEmailPayload() {
+    const target = state.nextTarget;
+    return {
+      version: NEXT_TARGET_CACHE_VERSION,
+      nextTarget: {
+        url: target.url || "",
+        sender: target.sender || "",
+        subject: target.subject || "",
+        date: target.date || "",
+        threadId: target.threadId || "",
+        threadToken: target.threadToken || "",
+        pageOffset: Number.isFinite(target.pageOffset) ? target.pageOffset : 0,
+        listHash: target.listHash || "",
+        sourceUrl: target.sourceUrl || ""
+      },
       updatedAt: Date.now()
     };
   }
@@ -529,7 +572,7 @@
     section.classList.toggle("gc-hidden", !goNextChecked);
     if (!goNextChecked) return;
 
-    if (!state.cachedNextEmailUrl) {
+    if (!state.nextTarget.url) {
       const empty = STRINGS.ui.emptyValue;
       summaryEl.textContent = STRINGS.ui.notCached;
       if (urlEl) urlEl.textContent = STRINGS.ui.notCached;
@@ -544,19 +587,19 @@
     }
 
     const summaryParts = [
-      state.cachedNextEmailSender || "",
-      state.cachedNextEmailSubject || "",
-      state.cachedNextEmailDate || ""
+      state.nextTarget.sender || "",
+      state.nextTarget.subject || "",
+      state.nextTarget.date || ""
     ].filter(Boolean);
     summaryEl.textContent = summaryParts.join(" | ") || STRINGS.ui.cachedTargetReady;
-    if (urlEl) urlEl.textContent = state.cachedNextEmailUrl;
-    if (senderEl) senderEl.textContent = state.cachedNextEmailSender || STRINGS.ui.emptyValue;
-    if (subjectEl) subjectEl.textContent = state.cachedNextEmailSubject || STRINGS.ui.emptyValue;
-    if (dateEl) dateEl.textContent = state.cachedNextEmailDate || STRINGS.ui.emptyValue;
-    if (threadIdEl) threadIdEl.textContent = state.cachedNextEmailThreadId || STRINGS.ui.emptyValue;
-    if (threadTokenEl) threadTokenEl.textContent = state.cachedNextEmailThreadToken || STRINGS.ui.emptyValue;
-    if (pageOffsetEl) pageOffsetEl.textContent = String(state.cachedNextEmailPageOffset || 0);
-    if (listHashEl) listHashEl.textContent = state.cachedNextEmailListHash || STRINGS.ui.emptyValue;
+    if (urlEl) urlEl.textContent = state.nextTarget.url;
+    if (senderEl) senderEl.textContent = state.nextTarget.sender || STRINGS.ui.emptyValue;
+    if (subjectEl) subjectEl.textContent = state.nextTarget.subject || STRINGS.ui.emptyValue;
+    if (dateEl) dateEl.textContent = state.nextTarget.date || STRINGS.ui.emptyValue;
+    if (threadIdEl) threadIdEl.textContent = state.nextTarget.threadId || STRINGS.ui.emptyValue;
+    if (threadTokenEl) threadTokenEl.textContent = state.nextTarget.threadToken || STRINGS.ui.emptyValue;
+    if (pageOffsetEl) pageOffsetEl.textContent = String(state.nextTarget.pageOffset || 0);
+    if (listHashEl) listHashEl.textContent = state.nextTarget.listHash || STRINGS.ui.emptyValue;
   }
 
   /** Persists cached next email target. */
@@ -567,23 +610,16 @@
 
   /** Clears cached next email target. */
   function clearCachedNextEmailTarget() {
-    state.cachedNextEmailUrl = "";
-    state.cachedNextEmailSender = "";
-    state.cachedNextEmailSubject = "";
-    state.cachedNextEmailDate = "";
-    state.cachedNextEmailThreadId = "";
-    state.cachedNextEmailThreadToken = "";
-    state.cachedNextEmailPageOffset = 0;
-    state.cachedNextEmailListHash = "";
-    state.cachedNextEmailSourceUrl = "";
+    state.nextTarget = createEmptyNextTarget();
     persistCachedNextEmailTarget();
   }
 
   /** Checks whether cached target valid for current context. */
   function isCachedTargetValidForCurrentContext(cachedPayload) {
-    const url = String(cachedPayload?.url || "").trim();
+    const cached = unwrapStoredNextTarget(cachedPayload);
+    const url = String(cached?.url || "").trim();
     if (!url) return false;
-    const sourceUrl = normalizeComparableUrl(cachedPayload?.sourceUrl || "");
+    const sourceUrl = normalizeComparableUrl(cached?.sourceUrl || "");
     const currentUrl = normalizeComparableUrl(location.href);
     if (!sourceUrl || !currentUrl) return false;
     return sourceUrl === currentUrl;
@@ -595,30 +631,11 @@
       const cached = result[NEXT_EMAIL_TARGET_CACHE_KEY];
       if (!cached || typeof cached !== "object") return;
       if (!isCachedTargetValidForCurrentContext(cached)) {
-        state.cachedNextEmailUrl = "";
-        state.cachedNextEmailSender = "";
-        state.cachedNextEmailSubject = "";
-        state.cachedNextEmailDate = "";
-        state.cachedNextEmailThreadId = "";
-        state.cachedNextEmailThreadToken = "";
-        state.cachedNextEmailPageOffset = 0;
-        state.cachedNextEmailListHash = "";
-        state.cachedNextEmailSourceUrl = "";
+        state.nextTarget = createEmptyNextTarget();
         renderNextEmailTargetSection();
         return;
       }
-      state.cachedNextEmailUrl = String(cached.url || "");
-      state.cachedNextEmailSender = normalizeEmail(cached.sender || "");
-      state.cachedNextEmailSubject = String(cached.subject || "").trim();
-      state.cachedNextEmailDate = String(cached.date || "").trim();
-      state.cachedNextEmailThreadId = normalizeFingerprintText(cached.threadId || "");
-      state.cachedNextEmailThreadToken = normalizeFingerprintText(cached.threadToken || "");
-      state.cachedNextEmailPageOffset = Math.max(
-        0,
-        Number.parseInt(String(cached.pageOffset ?? ""), 10) || 0
-      );
-      state.cachedNextEmailListHash = String(cached.listHash || "").trim().toLowerCase();
-      state.cachedNextEmailSourceUrl = normalizeComparableUrl(cached.sourceUrl || "");
+      state.nextTarget = nextTargetFromStored(cached);
       renderNextEmailTargetSection();
     });
   }
@@ -626,12 +643,12 @@
   /** Handles announce email target status. */
   function announceEmailTargetStatus(prefix = "Email target status") {
     renderNextEmailTargetSection();
-    if (state.cachedNextEmailUrl) {
+    if (state.nextTarget.url) {
       const parts = [
-        state.cachedNextEmailUrl,
-        state.cachedNextEmailSender || "",
-        state.cachedNextEmailSubject || "",
-        state.cachedNextEmailDate || ""
+        state.nextTarget.url,
+        state.nextTarget.sender || "",
+        state.nextTarget.subject || "",
+        state.nextTarget.date || ""
       ].filter(Boolean);
       setLog(`${prefix}: ${parts.join(" | ")}`);
       return;
@@ -991,7 +1008,7 @@
     }
     const openThreadUrl = location.href;
     const cached = await cacheNextEmailTargetForSender(sender, { returnToUrl: openThreadUrl });
-    if (!cached || !state.cachedNextEmailUrl) {
+    if (!cached || !state.nextTarget.url) {
       announceEmailTargetStatus("Email target before run");
       throw new Error("Could not prepare next-email target before batch execution.");
     }
@@ -2480,13 +2497,13 @@
       throw new Error("Open an email first so I can identify its sender before caching next target.");
     }
     const currentSourceUrl = normalizeComparableUrl(returnToUrl || location.href);
-    const cachedSourceUrl = normalizeComparableUrl(state.cachedNextEmailSourceUrl || "");
-    const cachedSender = normalizeEmail(state.cachedNextEmailSender || "");
+    const cachedSourceUrl = normalizeComparableUrl(state.nextTarget.sourceUrl || "");
+    const cachedSender = normalizeEmail(state.nextTarget.sender || "");
     if (cachedSourceUrl && currentSourceUrl && cachedSourceUrl !== currentSourceUrl) {
       clearCachedNextEmailTarget();
     }
     const cachedMatchesSource = !!(
-      state.cachedNextEmailUrl &&
+      state.nextTarget.url &&
       cachedSourceUrl &&
       cachedSourceUrl === currentSourceUrl
     );
@@ -2500,9 +2517,9 @@
     }
     if (
       expectedSender &&
-      state.cachedNextEmailUrl &&
-      state.cachedNextEmailSender &&
-      normalizeEmail(state.cachedNextEmailSender) === expectedSender
+      state.nextTarget.url &&
+      state.nextTarget.sender &&
+      normalizeEmail(state.nextTarget.sender) === expectedSender
     ) {
       return true;
     }
@@ -2518,23 +2535,22 @@
         announceEmailTargetStatus("Email target after inbox scan");
         return false;
       }
-      state.cachedNextEmailSender = normalizeEmail(target.sender || expectedSender || sender || "");
-      state.cachedNextEmailSubject = (target.subject || "").trim();
-      state.cachedNextEmailDate = (target.date || "").trim();
-      state.cachedNextEmailUrl = target.url;
-      state.cachedNextEmailThreadId = normalizeFingerprintText(target.threadId || "");
-      state.cachedNextEmailThreadToken = normalizeFingerprintText(target.threadToken || "");
-      state.cachedNextEmailPageOffset = Math.max(
-        0,
-        Number.parseInt(String(target.pageOffset ?? ""), 10) || 0
-      );
-      state.cachedNextEmailListHash = getListContextHashFromHash(target.listHash || "");
-      state.cachedNextEmailSourceUrl = currentSourceUrl;
+      state.nextTarget = {
+        url: target.url,
+        sender: normalizeEmail(target.sender || expectedSender || sender || ""),
+        subject: (target.subject || "").trim(),
+        date: (target.date || "").trim(),
+        threadId: normalizeFingerprintText(target.threadId || ""),
+        threadToken: normalizeFingerprintText(target.threadToken || ""),
+        pageOffset: Math.max(0, Number.parseInt(String(target.pageOffset ?? ""), 10) || 0),
+        listHash: getListContextHashFromHash(target.listHash || ""),
+        sourceUrl: currentSourceUrl
+      };
       persistCachedNextEmailTarget();
       const preview = [
-        state.cachedNextEmailSender || "unknown sender",
-        state.cachedNextEmailSubject || "(no subject)",
-        state.cachedNextEmailDate || ""
+        state.nextTarget.sender || "unknown sender",
+        state.nextTarget.subject || "(no subject)",
+        state.nextTarget.date || ""
       ]
         .filter(Boolean)
         .join(" | ");
@@ -3017,12 +3033,12 @@
 
   /** Finds cached target row index. */
   function findCachedTargetRowIndex(rows) {
-    const targetThreadId = normalizeFingerprintText(state.cachedNextEmailThreadId || "");
-    const targetThreadToken = normalizeFingerprintText(state.cachedNextEmailThreadToken || "");
-    const targetUrl = normalizeComparableUrl(state.cachedNextEmailUrl || "");
-    const targetSender = normalizeEmail(state.cachedNextEmailSender || "");
-    const targetSubject = normalizeSubjectForMatch(state.cachedNextEmailSubject || "");
-    const targetDate = parseDateSignature(state.cachedNextEmailDate || "");
+    const targetThreadId = normalizeFingerprintText(state.nextTarget.threadId || "");
+    const targetThreadToken = normalizeFingerprintText(state.nextTarget.threadToken || "");
+    const targetUrl = normalizeComparableUrl(state.nextTarget.url || "");
+    const targetSender = normalizeEmail(state.nextTarget.sender || "");
+    const targetSubject = normalizeSubjectForMatch(state.nextTarget.subject || "");
+    const targetDate = parseDateSignature(state.nextTarget.date || "");
 
     if (targetThreadId) {
       for (let i = 0; i < rows.length; i += 1) {
@@ -3074,16 +3090,16 @@
 
   /** Opens cached next email from list context. */
   async function openCachedNextEmailFromListContext() {
-    const listHash = getListContextHashFromHash(state.cachedNextEmailListHash || "");
+    const listHash = getListContextHashFromHash(state.nextTarget.listHash || "");
     if (listHash) {
       navigateWithinGmail(listHash);
       await waitForThreadRows(12000);
       await sleep(200);
     } else {
-      await navigateToDiscoveryListContext(state.cachedNextEmailSender || "");
+      await navigateToDiscoveryListContext(state.nextTarget.sender || "");
     }
 
-    const pageOffset = Math.max(0, Number.parseInt(String(state.cachedNextEmailPageOffset ?? ""), 10) || 0);
+    const pageOffset = Math.max(0, Number.parseInt(String(state.nextTarget.pageOffset ?? ""), 10) || 0);
     for (let i = 0; i < pageOffset; i += 1) {
       if (shouldStopExecution()) return false;
       const moved = await goToNextResultsPage();
@@ -3115,7 +3131,7 @@
     };
     try {
       setLog("Load Next Email [1/8]: Starting action...");
-      const cached = !!state.cachedNextEmailUrl;
+      const cached = !!state.nextTarget.url;
       if (cached) {
         setLog("Load Next Email [2/8]: Cached target found.");
       } else {
@@ -3128,7 +3144,7 @@
         return;
       }
       setLog("Load Next Email [4/8]: Validating target URL...");
-      if (!cached || !state.cachedNextEmailUrl) {
+      if (!cached || !state.nextTarget.url) {
         setLog("Load Next Email [4/8]: No cache — trying Gmail's Older button...");
         const olderBtn = findNextPageButton();
         if (olderBtn) {
@@ -3144,7 +3160,7 @@
         return;
       }
 
-      const targetUrl = state.cachedNextEmailUrl;
+      const targetUrl = state.nextTarget.url;
       setLog("Load Next Email [5/8]: Target URL resolved.");
       announceEmailTargetStatus("Email target before open");
       const targetMessage = `Cached email target: ${targetUrl}`;
@@ -3393,30 +3409,11 @@
     if (changes[NEXT_EMAIL_TARGET_CACHE_KEY]) {
       const cached = changes[NEXT_EMAIL_TARGET_CACHE_KEY].newValue || {};
       if (!isCachedTargetValidForCurrentContext(cached)) {
-        state.cachedNextEmailUrl = "";
-        state.cachedNextEmailSender = "";
-        state.cachedNextEmailSubject = "";
-        state.cachedNextEmailDate = "";
-        state.cachedNextEmailThreadId = "";
-        state.cachedNextEmailThreadToken = "";
-        state.cachedNextEmailPageOffset = 0;
-        state.cachedNextEmailListHash = "";
-        state.cachedNextEmailSourceUrl = "";
+        state.nextTarget = createEmptyNextTarget();
         renderNextEmailTargetSection();
         return;
       }
-      state.cachedNextEmailUrl = String(cached.url || "");
-      state.cachedNextEmailSender = normalizeEmail(cached.sender || "");
-      state.cachedNextEmailSubject = String(cached.subject || "").trim();
-      state.cachedNextEmailDate = String(cached.date || "").trim();
-      state.cachedNextEmailThreadId = normalizeFingerprintText(cached.threadId || "");
-      state.cachedNextEmailThreadToken = normalizeFingerprintText(cached.threadToken || "");
-      state.cachedNextEmailPageOffset = Math.max(
-        0,
-        Number.parseInt(String(cached.pageOffset ?? ""), 10) || 0
-      );
-      state.cachedNextEmailListHash = String(cached.listHash || "").trim().toLowerCase();
-      state.cachedNextEmailSourceUrl = normalizeComparableUrl(cached.sourceUrl || "");
+      state.nextTarget = nextTargetFromStored(cached);
       renderNextEmailTargetSection();
     }
   };
