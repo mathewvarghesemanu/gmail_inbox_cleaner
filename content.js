@@ -40,6 +40,8 @@
     GO_TO_NEXT_PAGE: "gc-next-page"
   };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
+  /** Popup setting: max inbox pages to scan when preparing next-email targeting. */
+  const MAX_SCAN_PAGES_KEY = "maxScanPages";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
@@ -577,6 +579,13 @@
     const parsed = Number.parseInt(String(raw ?? ""), 10);
     if (!Number.isFinite(parsed)) return DEFAULT_SCAN_PAGE_LIMIT;
     return Math.min(MAX_SCAN_PAGE_LIMIT, Math.max(MIN_SCAN_PAGE_LIMIT, parsed));
+  }
+
+  /** Loads the popup-configured scan page limit from storage. */
+  function syncScanPageLimitFromStorage() {
+    safeStorageGet([MAX_SCAN_PAGES_KEY], (result) => {
+      state.maxScanPages = normalizeScanPageLimit(result[MAX_SCAN_PAGES_KEY]);
+    });
   }
 
   /** Checks whether editable target. */
@@ -3178,6 +3187,9 @@
     if (changes[SHOW_EXTENSION_KEY]) {
       setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
     }
+    if (changes[MAX_SCAN_PAGES_KEY]) {
+      state.maxScanPages = normalizeScanPageLimit(changes[MAX_SCAN_PAGES_KEY].newValue);
+    }
     if (changes[NEXT_EMAIL_TARGET_CACHE_KEY]) {
       const cached = changes[NEXT_EMAIL_TARGET_CACHE_KEY].newValue || {};
       if (!isCachedTargetValidForCurrentContext(cached)) {
@@ -3208,6 +3220,7 @@
       renderNextEmailTargetSection();
     }
   };
+  syncScanPageLimitFromStorage();
   try {
     chrome.storage.onChanged.addListener(onStorageChanged);
   } catch (error) {
