@@ -60,8 +60,140 @@
   const MAX_SCAN_PAGE_LIMIT = 200;
   state.maxScanPages = DEFAULT_SCAN_PAGE_LIMIT;
 
+  /**
+   * Gmail DOM selectors, centralized so Gmail markup changes are fixed in one place.
+   *
+   * Conventions:
+   * - A string is a single CSS selector (may be a comma list; DOM order wins).
+   * - An array is an ordered fallback chain: the first selector that matches wins.
+   *   Where Gmail's obfuscated class names (e.g. "Cq", "aqL", "T-Jo") are used they
+   *   either refine a stable attribute (gh=, role=, data-*) that follows as the
+   *   fallback, or are the only known hook and are marked as such.
+   */
+  const SELECTORS = {
+    // Layout / containers
+    main: "div[role='main']",
+    tabPanel: "div[role='tabpanel']",
+    dialog: "[role='dialog']",
+    dialogs: "div[role='alertdialog'], div[role='dialog']",
+    blockquote: "blockquote",
+    /** Mailbox (list view) action toolbar. gh='mtb' is stable; ".Cq.aqL" only refines it. */
+    mailboxToolbar: ["div.Cq.aqL[gh='mtb']", "div[gh='mtb']"],
+    /** Thread-list container (gh attribute is stable). */
+    threadListContainer: "div[gh='tl']",
+    /** Signals that a list view (toolbar or at least one row) has rendered. */
+    listViewReady: "div[gh='mtb'], tr.zA",
+    /** Generic clickable controls. */
+    buttons: "div[role='button'], span[role='button'], button",
+    roleLinkOrButton: "[role='link'], [role='button']",
+    anchors: "a",
+    anchorsWithHref: "a[href]",
+
+    // Search
+    searchInput: ["input[name='q']", "input[aria-label='Search mail']"],
+    /** Search refinement chips (class-only hook; data-query is the payload). */
+    refinementChips: "div.Ii[data-query]",
+    /** Sender shown in the search header card (class-only hook). */
+    headerSenderCandidates: "div.bX div.c5.J-J5-Ji, div.bX div.dp div.dr div.Cz.J-J5-Ji.e",
+
+    // Open thread
+    openThreadHeading: "h2.hP, h2[data-thread-perm-id]",
+    openThreadHeadingInMain: "div[role='main'] h2.hP, div[role='main'] h2[data-thread-perm-id]",
+    openThreadSubject: ["h2.hP", "h2[data-thread-perm-id]"],
+    openThreadLegacyId: [
+      "div[role='main'] h2[data-legacy-thread-id]",
+      "div[role='main'] [data-thread-perm-id][data-legacy-thread-id]"
+    ],
+    /** Sender header of the open message: span[email] carries the address. */
+    openSenderEmail: ["h3.iw span[email]", "h3.iw .gD[email]", "h3.iw span[email][name]"],
+    openSenderName: ["h3.iw span[email][name]"],
+    openSenderNameText: ["h3.iw .gD", "h3.iw span[email]"],
+    openDateCandidates: "time, span.g3, span[title]",
+
+    // Thread list rows
+    threadRows: "tr[role='row'][jscontroller='ZdOxDb'], tr.zA",
+    anyRow: "tr.zA, tr[role='row']",
+    rowSenderPresence: "span[email], span.yP[email]",
+    rowSubjectOrPreview: "span.bog, span.bqe, span.y2, td.xW span",
+    rowSenderEmailAttr: ["span[email]", "span.yP[email]", "span.zF[email]"],
+    rowSenderText: ["span[email]", "span.yP", "span.zF"],
+    rowSenderNameAttr: ["span[email][name]", "span.yP[name]", "span.zF[name]"],
+    rowSenderNameText: ["span[email]", "span.yP, span.zF, span.bA4 span"],
+    rowSenderSpan: "span[email]",
+    rowSubject: "span.bog",
+    rowSubjectText: ["span.bog", "span.bqe"],
+    rowPreview: "span.y2",
+    rowDateTitled: "td.xW span[title]",
+    rowDateLabeled: "td.xW span[aria-label]",
+    rowDateShortText: ["td.xW .bq3", "td.xW span"],
+    rowLegacyThreadId: "[data-legacy-thread-id]",
+    rowCheckbox: "[role='checkbox']",
+    rowOpenControl: ["span.bog", "td.xY a[href*='#']", "a[href*='#']"],
+
+    // Selection
+    /** Master "select" checkbox; class variants first, most specific to least. */
+    masterCheckbox: [
+      "span.T-Jo.J-J5-Ji.T-Jo-auq.T-Jo-iAfbIe[role='checkbox']",
+      "span.T-Jo.J-J5-Ji.T-Jo-auq[role='checkbox']",
+      "span.T-Jo.J-J5-Ji[role='checkbox']"
+    ],
+    masterCheckboxInner: ".T-Jo-auh[role='presentation']",
+    menu: ".J-M[role='menu']",
+    menuItems: ".J-M[role='menu'] .J-N, .J-M[role='menu'] [role='menuitem']",
+    menuItemLabelInMenu: ".J-M[role='menu'] .J-N-Jz",
+    menuItemLabel: ".J-N-Jz",
+    menuItem: ".J-N",
+
+    // Archive
+    toolbarControls: "div[role='button'], button, span[role='button']",
+
+    // Unsubscribe
+    unsubscribeCandidates: "button, [role='button'], [role='link'], a, span, div",
+    unsubscribeActionable: "a, [role='button'], button",
+    unsubscribeButtonLike: "button, [role='button'], a",
+    roleLink: "[role='link']",
+    /** Gmail's header "Unsubscribe" link class (class-only hook). */
+    unsubscribeLinkClass: "Ca",
+    dialogOkButton: "button[data-mdc-dialog-action='ok'], [role='button'][data-mdc-dialog-action='ok']",
+    dialogButtons: "button, [role='button'], [role='link'], a, span",
+    noticeNodes: "div, span, p"
+  };
+
   /** Handles sleep. */
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** Returns the first element matching any selector in an ordered list (or a single selector). */
+  function queryFirst(root, selectors) {
+    if (!root) return null;
+    const list = Array.isArray(selectors) ? selectors : [selectors];
+    for (const selector of list) {
+      const el = root.querySelector(selector);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  /** Returns the first non-empty attribute value across an ordered selector list. */
+  function firstAttr(root, selectors, attr) {
+    if (!root) return "";
+    const list = Array.isArray(selectors) ? selectors : [selectors];
+    for (const selector of list) {
+      const value = root.querySelector(selector)?.getAttribute(attr);
+      if (value) return value;
+    }
+    return "";
+  }
+
+  /** Returns the first non-empty trimmed textContent across an ordered selector list. */
+  function firstText(root, selectors) {
+    if (!root) return "";
+    const list = Array.isArray(selectors) ? selectors : [selectors];
+    for (const selector of list) {
+      const value = root.querySelector(selector)?.textContent?.trim();
+      if (value) return value;
+    }
+    return "";
+  }
 
   /** Applies top/left position to a fixed element, clearing right/transform overrides. */
   function applyElPosition(el, top, left, clamp = true) {
@@ -853,9 +985,9 @@
 
   /** Returns open thread root. */
   function getOpenThreadRoot() {
-    const main = document.querySelector("div[role='main']");
+    const main = document.querySelector(SELECTORS.main);
     if (!main) return null;
-    const hasOpenThread = !!main.querySelector("h2.hP, h2[data-thread-perm-id]");
+    const hasOpenThread = !!main.querySelector(SELECTORS.openThreadHeading);
     if (!hasOpenThread) return null;
     return main;
   }
@@ -872,11 +1004,7 @@
       return "";
     }
 
-    const openSender =
-      threadRoot.querySelector("h3.iw span[email]")?.getAttribute("email") ||
-      threadRoot.querySelector("h3.iw .gD[email]")?.getAttribute("email") ||
-      threadRoot.querySelector("h3.iw span[email][name]")?.getAttribute("email") ||
-      "";
+    const openSender = firstAttr(threadRoot, SELECTORS.openSenderEmail, "email") || "";
 
     state.openSender = openSender;
     console.log("[GmailCleaner] Step 4 sender-only", {
@@ -889,18 +1017,18 @@
   /** Returns thread rows. */
   function getThreadRows() {
     const candidates = [
-      ...document.querySelectorAll("tr[role='row'][jscontroller='ZdOxDb'], tr.zA")
+      ...document.querySelectorAll(SELECTORS.threadRows)
     ];
 
     const uniqueRows = [...new Set(candidates)];
     return uniqueRows.filter((row) => {
       if (!isVisible(row)) return false;
-      const main = row.closest("div[role='main']");
+      const main = row.closest(SELECTORS.main);
       if (!main || !isVisible(main)) return false;
-      const tabPanel = row.closest("div[role='tabpanel']");
+      const tabPanel = row.closest(SELECTORS.tabPanel);
       if (tabPanel && !isVisible(tabPanel)) return false;
-      const hasSender = !!row.querySelector("span[email], span.yP[email]");
-      const hasSubjectOrPreview = !!row.querySelector("span.bog, span.bqe, span.y2, td.xW span");
+      const hasSender = !!row.querySelector(SELECTORS.rowSenderPresence);
+      const hasSubjectOrPreview = !!row.querySelector(SELECTORS.rowSubjectOrPreview);
       return hasSender && hasSubjectOrPreview;
     });
   }
@@ -920,10 +1048,10 @@
   /** Handles row to item. */
   function rowToItem(row) {
     const sender =
-      row.querySelector("span[email]")?.getAttribute("email") ||
-      row.querySelector("span[email]")?.textContent?.trim() ||
+      firstAttr(row, SELECTORS.rowSenderSpan, "email") ||
+      firstText(row, SELECTORS.rowSenderSpan) ||
       "Unknown sender";
-    const subject = row.querySelector("span.bog")?.textContent?.trim() || "(No subject)";
+    const subject = firstText(row, SELECTORS.rowSubject) || "(No subject)";
     return { sender, subject };
   }
 
@@ -992,11 +1120,7 @@
 
   /** Returns current search input. */
   function getCurrentSearchInput() {
-    return (
-      document.querySelector("input[name='q']") ||
-      document.querySelector("input[aria-label='Search mail']") ||
-      null
-    );
+    return queryFirst(document, SELECTORS.searchInput);
   }
 
   /** Returns current search query. */
@@ -1007,7 +1131,7 @@
 
   /** Returns refinement query. */
   function getRefinementQuery() {
-    const chips = [...document.querySelectorAll("div.Ii[data-query]")].filter((el) => isVisible(el));
+    const chips = [...document.querySelectorAll(SELECTORS.refinementChips)].filter((el) => isVisible(el));
     const best = chips
       .map((el) => normalizeQuery(el.getAttribute("data-query") || ""))
       .sort((a, b) => b.length - a.length)[0];
@@ -1023,7 +1147,7 @@
     };
 
     const candidates = [
-      ...document.querySelectorAll("div.bX div.c5.J-J5-Ji, div.bX div.dp div.dr div.Cz.J-J5-Ji.e")
+      ...document.querySelectorAll(SELECTORS.headerSenderCandidates)
     ]
       .filter((el) => isVisible(el))
       .map((el) => extractEmailFromText(el.textContent || ""))
@@ -1037,7 +1161,7 @@
   function getRowSenderSignals(limit = 15) {
     const rows = getThreadRows().slice(0, limit);
     return rows
-      .map((row) => normalizeEmail(row.querySelector("span[email]")?.getAttribute("email") || ""))
+      .map((row) => normalizeEmail(firstAttr(row, SELECTORS.rowSenderSpan, "email")))
       .filter(Boolean);
   }
 
@@ -1208,17 +1332,12 @@
 
   /** Finds master checkbox. */
   function findMasterCheckbox(toolbar) {
-    return (
-      toolbar.querySelector("span.T-Jo.J-J5-Ji.T-Jo-auq.T-Jo-iAfbIe[role='checkbox']") ||
-      toolbar.querySelector("span.T-Jo.J-J5-Ji.T-Jo-auq[role='checkbox']") ||
-      toolbar.querySelector("span.T-Jo.J-J5-Ji[role='checkbox']") ||
-      null
-    );
+    return queryFirst(toolbar, SELECTORS.masterCheckbox);
   }
 
   /** Finds select button. */
   function findSelectButton(toolbar) {
-    return [...toolbar.querySelectorAll("div[role='button'], span[role='button'], button")].find((el) => {
+    return [...toolbar.querySelectorAll(SELECTORS.buttons)].find((el) => {
       const aria = (el.getAttribute("aria-label") || "").toLowerCase();
       const tooltip = (el.getAttribute("data-tooltip") || "").toLowerCase();
       return isVisible(el) && (aria === "select" || tooltip === "select");
@@ -1227,7 +1346,7 @@
 
   /** Finds all menu item. */
   function findAllMenuItem() {
-    const direct = [...document.querySelectorAll(".J-M[role='menu'] .J-N, .J-M[role='menu'] [role='menuitem']")]
+    const direct = [...document.querySelectorAll(SELECTORS.menuItems)]
       .find((el) => {
         if (!isVisible(el)) return false;
         const selector = (el.getAttribute("selector") || "").toLowerCase();
@@ -1237,11 +1356,11 @@
       });
     if (direct) return direct;
 
-    const nestedLabel = [...document.querySelectorAll(".J-M[role='menu'] .J-N-Jz")].find((el) => {
+    const nestedLabel = [...document.querySelectorAll(SELECTORS.menuItemLabelInMenu)].find((el) => {
       if (!isVisible(el)) return false;
       return (el.textContent || "").trim().toLowerCase() === "all";
     });
-    if (nestedLabel) return nestedLabel.closest(".J-N") || nestedLabel;
+    if (nestedLabel) return nestedLabel.closest(SELECTORS.menuItem) || nestedLabel;
 
     return null;
   }
@@ -1266,12 +1385,12 @@
 
   /** Finds open select menu. */
   function findOpenSelectMenu() {
-    return [...document.querySelectorAll(".J-M[role='menu']")].find((el) => isVisible(el)) || null;
+    return [...document.querySelectorAll(SELECTORS.menu)].find((el) => isVisible(el)) || null;
   }
 
   /** Clicks all menu item. */
   async function clickAllMenuItem(allItem) {
-    const label = allItem.querySelector(".J-N-Jz");
+    const label = allItem.querySelector(SELECTORS.menuItemLabel);
     robustClick(allItem);
     dispatchMenuClickSequence(allItem);
     if (label) {
@@ -1313,7 +1432,7 @@
     for (let i = 0; i < attempts; i += 1) {
       const master = findMasterCheckbox(toolbar);
       if (master?.getAttribute("aria-checked") === "true") return true;
-      const inner = master?.querySelector(".T-Jo-auh[role='presentation']");
+      const inner = master?.querySelector(SELECTORS.masterCheckboxInner);
       if (inner) {
         robustClick(inner);
         await sleep(220);
@@ -1329,7 +1448,7 @@
   /** Handles select all matching search. */
   async function selectAllMatchingSearch(options = {}) {
     const { includeAllInSearch = true } = options;
-    const toolbar = getMailboxToolbar() || document.querySelector("div[gh='tl']") || document;
+    const toolbar = getMailboxToolbar() || document.querySelector(SELECTORS.threadListContainer) || document;
     const selectButton = findSelectButton(toolbar);
 
     if (!selectButton) {
@@ -1367,7 +1486,7 @@
     }
 
     const selectAllSearchLink = includeAllInSearch
-      ? [...document.querySelectorAll("a")].find((a) =>
+      ? [...document.querySelectorAll(SELECTORS.anchors)].find((a) =>
       /Select all conversations that match this search/i.test(a.textContent || "") ||
       /all conversations that match this search/i.test(a.textContent || "")
     )
@@ -1391,7 +1510,7 @@
 
     return rows.some((row) => {
       if ((row.getAttribute("aria-selected") || "").toLowerCase() === "true") return true;
-      const rowCheckbox = row.querySelector("[role='checkbox']");
+      const rowCheckbox = row.querySelector(SELECTORS.rowCheckbox);
       return (rowCheckbox?.getAttribute("aria-checked") || "").toLowerCase() === "true";
     });
   }
@@ -1400,7 +1519,7 @@
   async function waitForSelectionToSettle(timeout = 5000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
-      const toolbar = getMailboxToolbar() || document.querySelector("div[gh='tl']") || document;
+      const toolbar = getMailboxToolbar() || document.querySelector(SELECTORS.threadListContainer) || document;
       const masterChecked = isMasterChecked(toolbar);
       if (masterChecked && hasAnySelectedConversationRow()) {
         await sleep(180);
@@ -1414,7 +1533,7 @@
   /** Archives selected. */
   async function archiveSelected() {
     const toolbar = getMailboxToolbar() || document;
-    const archiveControl = [...toolbar.querySelectorAll("div[role='button'], button, span[role='button']")].find(
+    const archiveControl = [...toolbar.querySelectorAll(SELECTORS.toolbarControls)].find(
       (el) => {
         if (!isVisible(el)) return false;
         if ((el.getAttribute("aria-disabled") || "").toLowerCase() === "true") return false;
@@ -1455,7 +1574,7 @@
   /** Finds next page button. */
   function findNextPageButton() {
     const controls = [
-      ...document.querySelectorAll("div[role='button'], span[role='button'], button")
+      ...document.querySelectorAll(SELECTORS.buttons)
     ];
 
     return controls.find((el) => {
@@ -1474,7 +1593,7 @@
       if (!looksLikeNext) return false;
 
       // Avoid the tiny calendar/date picker arrows.
-      if (el.closest("[role='dialog']")) return false;
+      if (el.closest(SELECTORS.dialog)) return false;
       return true;
     }) || null;
   }
@@ -1485,10 +1604,10 @@
     if (!row) return "";
     const threadId =
       row.getAttribute("data-legacy-thread-id") ||
-      row.querySelector("[data-legacy-thread-id]")?.getAttribute("data-legacy-thread-id") ||
+      firstAttr(row, SELECTORS.rowLegacyThreadId, "data-legacy-thread-id") ||
       "";
-    const sender = row.querySelector("span[email]")?.getAttribute("email") || "";
-    const subject = row.querySelector("span.bog")?.textContent?.trim() || "";
+    const sender = firstAttr(row, SELECTORS.rowSenderSpan, "email");
+    const subject = firstText(row, SELECTORS.rowSubject);
     return `${threadId}|${sender}|${subject}`;
   }
 
@@ -1517,7 +1636,7 @@
     if (shouldStopExecution()) return false;
     const moved = await waitForPageChange(before, 12000);
     if (moved) {
-      await waitForSelector("div[gh='mtb'], tr.zA", 12000);
+      await waitForSelector(SELECTORS.listViewReady, 12000);
       await sleep(350);
     }
     return moved;
@@ -1526,12 +1645,8 @@
   /** Returns row sender email. */
   function getRowSenderEmail(row) {
     return normalizeEmail(
-      row.querySelector("span[email]")?.getAttribute("email") ||
-      row.querySelector("span.yP[email]")?.getAttribute("email") ||
-      row.querySelector("span.zF[email]")?.getAttribute("email") ||
-      row.querySelector("span[email]")?.textContent?.trim() ||
-      row.querySelector("span.yP")?.textContent?.trim() ||
-      row.querySelector("span.zF")?.textContent?.trim() ||
+      firstAttr(row, SELECTORS.rowSenderEmailAttr, "email") ||
+      firstText(row, SELECTORS.rowSenderText) ||
       ""
     );
   }
@@ -1540,7 +1655,7 @@
   function getThreadUrlFromRow(row) {
     const threadId = (
       row.getAttribute("data-legacy-thread-id") ||
-      row.querySelector("[data-legacy-thread-id]")?.getAttribute("data-legacy-thread-id") ||
+      firstAttr(row, SELECTORS.rowLegacyThreadId, "data-legacy-thread-id") ||
       ""
     )
       .trim()
@@ -1558,7 +1673,7 @@
     const looksLikeThreadHash = (hash) =>
       /^#(?:inbox|all|label\/[^/]+|category\/[^/]+)\/[^/?#]+/i.test(hash || "");
 
-    const anchors = [...row.querySelectorAll("a[href]")];
+    const anchors = [...row.querySelectorAll(SELECTORS.anchorsWithHref)];
     for (const anchor of anchors) {
       const href = anchor.getAttribute("href") || "";
       if (!href.includes("#")) continue;
@@ -1723,9 +1838,7 @@
   /** Returns open thread legacy id. */
   function getOpenThreadLegacyId() {
     return normalizeFingerprintText(
-      document.querySelector("div[role='main'] h2[data-legacy-thread-id]")?.getAttribute("data-legacy-thread-id") ||
-      document.querySelector("div[role='main'] [data-thread-perm-id][data-legacy-thread-id]")?.getAttribute("data-legacy-thread-id") ||
-      ""
+      firstAttr(document, SELECTORS.openThreadLegacyId, "data-legacy-thread-id") || ""
     );
   }
 
@@ -1777,7 +1890,7 @@
   function getRowThreadLegacyId(row) {
     return normalizeFingerprintText(
       row.getAttribute("data-legacy-thread-id") ||
-      row.querySelector("[data-legacy-thread-id]")?.getAttribute("data-legacy-thread-id") ||
+      firstAttr(row, SELECTORS.rowLegacyThreadId, "data-legacy-thread-id") ||
       ""
     );
   }
@@ -1786,11 +1899,7 @@
   function getOpenEmailSubject() {
     const threadRoot = getOpenThreadRoot();
     if (!threadRoot) return "";
-    return (
-      threadRoot.querySelector("h2.hP")?.textContent?.trim() ||
-      threadRoot.querySelector("h2[data-thread-perm-id]")?.textContent?.trim() ||
-      ""
-    );
+    return firstText(threadRoot, SELECTORS.openThreadSubject) || "";
   }
 
   /** Returns open email heading. */
@@ -1798,9 +1907,8 @@
     const threadRoot = getOpenThreadRoot();
     if (!threadRoot) return "";
     return (
-      threadRoot.querySelector("h3.iw span[email][name]")?.getAttribute("name") ||
-      threadRoot.querySelector("h3.iw .gD")?.textContent?.trim() ||
-      threadRoot.querySelector("h3.iw span[email]")?.textContent?.trim() ||
+      firstAttr(threadRoot, SELECTORS.openSenderName, "name") ||
+      firstText(threadRoot, SELECTORS.openSenderNameText) ||
       ""
     );
   }
@@ -1810,9 +1918,9 @@
     const threadRoot = getOpenThreadRoot();
     if (!threadRoot) return "";
     const candidates = [
-      ...threadRoot.querySelectorAll("time, span.g3, span[title]")
+      ...threadRoot.querySelectorAll(SELECTORS.openDateCandidates)
     ]
-      .filter((el) => isVisible(el) && !el.closest("tr.zA, tr[role='row']"))
+      .filter((el) => isVisible(el) && !el.closest(SELECTORS.anyRow))
       .map((el) => (el.getAttribute("datetime") || el.getAttribute("title") || el.textContent || "").trim())
       .filter(Boolean)
       .sort((a, b) => b.length - a.length);
@@ -1836,32 +1944,25 @@
   /** Returns row heading text. */
   function getRowHeadingText(row) {
     return (
-      row.querySelector("span[email][name]")?.getAttribute("name") ||
-      row.querySelector("span.yP[name]")?.getAttribute("name") ||
-      row.querySelector("span.zF[name]")?.getAttribute("name") ||
-      row.querySelector("span[email]")?.textContent?.trim() ||
-      row.querySelector("span.yP, span.zF, span.bA4 span")?.textContent?.trim() ||
+      firstAttr(row, SELECTORS.rowSenderNameAttr, "name") ||
+      firstText(row, SELECTORS.rowSenderNameText) ||
       ""
     );
   }
 
   /** Returns row subject text. */
   function getRowSubjectText(row) {
-    const subject =
-      row.querySelector("span.bog")?.textContent?.trim() ||
-      row.querySelector("span.bqe")?.textContent?.trim() ||
-      "";
-    const preview = row.querySelector("span.y2")?.textContent?.trim() || "";
+    const subject = firstText(row, SELECTORS.rowSubjectText);
+    const preview = firstText(row, SELECTORS.rowPreview);
     return `${subject} ${preview}`.trim();
   }
 
   /** Returns row date text. */
   function getRowDateText(row) {
     return (
-      row.querySelector("td.xW span[title]")?.getAttribute("title") ||
-      row.querySelector("td.xW span[aria-label]")?.getAttribute("aria-label") ||
-      row.querySelector("td.xW .bq3")?.textContent?.trim() ||
-      row.querySelector("td.xW span")?.textContent?.trim() ||
+      firstAttr(row, SELECTORS.rowDateTitled, "title") ||
+      firstAttr(row, SELECTORS.rowDateLabeled, "aria-label") ||
+      firstText(row, SELECTORS.rowDateShortText) ||
       ""
     );
   }
@@ -2313,7 +2414,7 @@
       if (priorUrl && normalizeComparableUrl(location.href) !== normalizeComparableUrl(priorUrl)) {
         setLog("Returning to current open email...");
         navigateWithinGmail(priorUrl);
-        await waitForSelector("div[role='main'] h2.hP, div[role='main'] h2[data-thread-perm-id]", 12000);
+        await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
         await sleep(180);
         setLog("Returned to current email. Continuing flow...");
       }
@@ -2366,8 +2467,8 @@
     if (!normalizedSender) return null;
 
     const quotedSender = `"${normalizedSender}"`;
-    const main = document.querySelector("div[role='main']") || document;
-    const nodes = [...main.querySelectorAll("div, span, p")].filter((el) => isVisible(el));
+    const main = document.querySelector(SELECTORS.main) || document;
+    const nodes = [...main.querySelectorAll(SELECTORS.noticeNodes)].filter((el) => isVisible(el));
     const keywords = [
       "unsubscribed",
       "you are unsubscribed",
@@ -2390,9 +2491,9 @@
 
   /** Finds best unsubscribe target. */
   function findBestUnsubscribeTarget() {
-    const main = document.querySelector("div[role='main']") || document;
+    const main = document.querySelector(SELECTORS.main) || document;
     const candidates = [
-      ...main.querySelectorAll("button, [role='button'], [role='link'], a, span, div")
+      ...main.querySelectorAll(SELECTORS.unsubscribeCandidates)
     ];
 
     // Prefer header-level actionable controls inside the open message area.
@@ -2400,17 +2501,17 @@
       .map((el) => {
         const signal = getUnsubscribeSignal(el);
         if (!signal.includes("unsubscribe")) return null;
-        if (el.closest("blockquote")) return null;
-        if (el.closest("a[href]") && !el.matches("a, [role='button'], button")) return null;
+        if (el.closest(SELECTORS.blockquote)) return null;
+        if (el.closest(SELECTORS.anchorsWithHref) && !el.matches(SELECTORS.unsubscribeActionable)) return null;
 
         let score = 0;
-        if (el.matches("button, [role='button'], a")) score += 8;
-        if (el.matches("[role='link']")) score += 9;
-        if (el.classList.contains("Ca")) score += 10;
+        if (el.matches(SELECTORS.unsubscribeButtonLike)) score += 8;
+        if (el.matches(SELECTORS.roleLink)) score += 9;
+        if (el.classList.contains(SELECTORS.unsubscribeLinkClass)) score += 10;
         if ((el.getAttribute("aria-label") || "").toLowerCase().includes("unsubscribe")) score += 6;
         if ((el.getAttribute("data-tooltip") || "").toLowerCase().includes("unsubscribe")) score += 5;
         if ((el.textContent || "").trim().toLowerCase().includes("unsubscribe")) score += 3;
-        if (el.closest("div[role='main']")) score += 1;
+        if (el.closest(SELECTORS.main)) score += 1;
         return { el, score };
       })
       .filter(Boolean)
@@ -2422,16 +2523,14 @@
   /** Finds unsubscribe confirm button. */
   function findUnsubscribeConfirmButton() {
     const dialogs = [
-      ...document.querySelectorAll("div[role='alertdialog'], div[role='dialog']")
+      ...document.querySelectorAll(SELECTORS.dialogs)
     ];
 
     for (const dialog of dialogs) {
-      const explicitOk = dialog.querySelector(
-        "button[data-mdc-dialog-action='ok'], [role='button'][data-mdc-dialog-action='ok']"
-      );
+      const explicitOk = dialog.querySelector(SELECTORS.dialogOkButton);
       if (explicitOk) return explicitOk;
 
-      const buttons = [...dialog.querySelectorAll("button, [role='button'], [role='link'], a, span")];
+      const buttons = [...dialog.querySelectorAll(SELECTORS.dialogButtons)];
       const match = buttons.find((btn) => {
         const signal = getUnsubscribeSignal(btn);
         if (signal.includes("cancel")) return false;
@@ -2446,11 +2545,11 @@
   /** Finds unsubscribe followup dismiss button. */
   function findUnsubscribeFollowupDismissButton() {
     const dialogs = [
-      ...document.querySelectorAll("div[role='alertdialog'], div[role='dialog']")
+      ...document.querySelectorAll(SELECTORS.dialogs)
     ].filter((dialog) => isVisible(dialog));
 
     for (const dialog of dialogs) {
-      const buttons = [...dialog.querySelectorAll("button, [role='button'], [role='link'], a, span")];
+      const buttons = [...dialog.querySelectorAll(SELECTORS.dialogButtons)];
       const match = buttons.find((btn) => {
         if (!isVisible(btn)) return false;
         const signal = getUnsubscribeSignal(btn);
@@ -2541,7 +2640,7 @@
     el.dispatchEvent(click);
 
     // Fallback for role=link elements that react to keyboard activation.
-    if (el.matches("[role='link'], [role='button']")) {
+    if (el.matches(SELECTORS.roleLinkOrButton)) {
       el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
       el.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true, cancelable: true }));
     }
@@ -2557,11 +2656,7 @@
 
   /** Returns mailbox toolbar. */
   function getMailboxToolbar() {
-    return (
-      document.querySelector("div.Cq.aqL[gh='mtb']") ||
-      document.querySelector("div[gh='mtb']") ||
-      null
-    );
+    return queryFirst(document, SELECTORS.mailboxToolbar);
   }
 
   /** Clicks unsubscribe in open email. */
@@ -2792,12 +2887,7 @@
 
   /** Returns row open control. */
   function getRowOpenControl(row) {
-    return (
-      row.querySelector("span.bog") ||
-      row.querySelector("td.xY a[href*='#']") ||
-      row.querySelector("a[href*='#']") ||
-      row
-    );
+    return queryFirst(row, SELECTORS.rowOpenControl) || row;
   }
 
   /** Finds cached target row index. */
@@ -2882,10 +2972,7 @@
 
     const openControl = getRowOpenControl(rows[rowIndex]);
     robustClick(openControl);
-    const openThread = await waitForSelector(
-      "div[role='main'] h2.hP, div[role='main'] h2[data-thread-perm-id]",
-      12000
-    );
+    const openThread = await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
     return !!openThread;
   }
 
@@ -2921,7 +3008,7 @@
         const olderBtn = findNextPageButton();
         if (olderBtn) {
           robustClick(olderBtn);
-          await waitForSelector("div[role='main'] h2.hP, div[role='main'] h2[data-thread-perm-id]", 12000);
+          await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
           setLog("Load Next Email: Opened next email via Older button.");
           showToast("Opened next email");
           return;
@@ -2952,7 +3039,7 @@
       }, 450);
       navigateWithinGmail(targetUrl);
       setLog("Load Next Email [8/8]: Waiting for next email view to load...");
-      await waitForSelector("div[role='main'] h2.hP, div[role='main'] h2[data-thread-perm-id]", 12000);
+      await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
       stopTargetLogTimer();
       setLog("Load Next Email: Completed via URL fallback.");
       showToast("Opened next email");
