@@ -1,5 +1,43 @@
+/* Colour tokens. popup.js sets html[data-theme] from the Theme setting
+   (Auto resolves from the system setting). */
 :root {
   color-scheme: light;
+  --bg: #f8fbff;
+  --surface: #ffffff;
+  --surface-2: #f1f4f9;
+  --border: #e1e5ea;
+  --text: #202124;
+  --muted: #5f6368;
+  --accent: #0b57d0;
+  --accent-text: #ffffff;
+  --hover: rgba(60, 64, 67, 0.08);
+  --caution-bg: #fef7e0;
+  --caution-border: #f9ab00;
+  --caution-text: #7a4d00;
+  --danger: #c5221f;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #202124;
+  --surface: #28292c;
+  --surface-2: #303134;
+  --border: #3c4043;
+  --text: #e8eaed;
+  --muted: #9aa0a6;
+  --accent: #8ab4f8;
+  --accent-text: #062e6f;
+  --hover: rgba(232, 234, 237, 0.08);
+  --caution-bg: #2b2612;
+  --caution-border: #fdd663;
+  --caution-text: #fdd663;
+  --danger: #f28b82;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html {
@@ -10,284 +48,108 @@ html {
 body {
   margin: 0;
   width: 320px;
-  max-width: 320px;
-  box-sizing: border-box;
   max-height: 560px;
   overflow-y: auto;
   overflow-x: hidden;
   font-family: "Google Sans", "Segoe UI", Arial, sans-serif;
-  background: #f8fbff;
-  color: #202124;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+[hidden] {
+  display: none !important;
 }
 
-.popup-root {
-  padding: 14px;
+.view {
+  padding: 12px 14px 14px;
 }
 
-.popup-title {
-  margin: 0 0 12px;
-  font-size: 15px;
-}
-
-.toggle-row {
+/* Header: title plus one icon button (Settings on the main view, Back in Settings). */
+.view-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  font-size: 13px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 10px;
+  margin-bottom: 12px;
 }
 
-.toggle-row input {
+#settings-view .view-header {
+  justify-content: flex-start;
+}
+
+.view-title {
   margin: 0;
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.appearance {
-  margin-top: 12px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.appearance h2 {
-  margin: 0;
-  font-size: 12px;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.speed {
-  margin-top: 12px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.speed h2 {
-  margin: 0;
-  font-size: 12px;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.speed .toggle-row {
-  padding: 8px;
-}
-
-.setting-help {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #5f6368;
-}
-
-.caution {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: #7a4d00;
-  background: #fef7e0;
-  border: 1px solid #f9ab00;
-  border-left-width: 4px;
-  border-radius: 6px;
-  padding: 8px;
-}
-
-.segmented {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.segmented label {
-  position: relative;
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
   cursor: pointer;
 }
 
-.segmented label + label {
-  border-left: 1px solid #dadce0;
+.icon-button:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
-/* Visually hidden but focusable radio; the span is the visible segment. */
-.segmented input {
-  position: absolute;
-  opacity: 0;
-  inset: 0;
-  margin: 0;
-  cursor: pointer;
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-.segmented span {
-  display: block;
-  padding: 7px 4px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: #3c4043;
-}
-
-.segmented input:checked + span {
-  background: #0b57d0;
-  color: #ffffff;
-}
-
-.segmented input:focus-visible + span {
-  outline: 2px solid #0b57d0;
-  outline-offset: -3px;
-}
-
-.caution[hidden] {
-  display: none;
-}
-
-.danger-zone {
-  margin-top: 12px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.danger-zone h2 {
-  margin: 0 0 6px;
-  font-size: 12px;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.danger-zone .toggle-row {
-  padding: 8px;
-}
-
-.delete-options {
-  margin-top: 8px;
-  display: grid;
-  gap: 8px;
-}
-
-.delete-options[hidden],
-.danger-note[hidden] {
-  display: none;
-}
-
-.danger-note {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: #d93025;
-}
-
-.disclaimer {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #5f6368;
-  background: #fef7e0;
-  border: 1px solid #f9e1a0;
-  border-radius: 6px;
-  padding: 8px;
-}
-
-
-.about {
-  margin-top: 12px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.about h2 {
-  margin: 0 0 6px;
-  font-size: 12px;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.about p {
-  margin: 0 0 6px;
-  font-size: 12px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-
-.about p:last-child {
-  margin-bottom: 0;
-}
-
-.support-link {
-  font-size: 11px;
-  color: #1967d2;
-  text-decoration: underline;
-}
-
-.stats {
-  margin-top: 12px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.stats h2 {
-  margin: 0 0 6px;
-  font-size: 12px;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.stats-caption {
+/* Stats (main view). */
+.stats-heading {
   margin: 0 0 8px;
   font-size: 11px;
-  color: #5f6368;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .stats-grid {
   margin: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
 }
 
+/* Two large tiles on top, three smaller ones below. */
 .stat-tile {
-  padding: 8px;
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
-  background: #f8fbff;
-  display: grid;
-  gap: 2px;
+  grid-column: span 2;
   min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  display: grid;
+  /* Label row absorbs extra height so numbers line up across a row of tiles. */
+  grid-template-rows: 1fr auto auto;
+  gap: 2px;
 }
 
-/* Odd tile count: the last tile spans the full row. */
-.stat-tile:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
+.stat-primary {
+  grid-column: span 3;
+  padding: 12px;
 }
 
 .stat-tile dt {
   font-size: 11px;
-  color: #5f6368;
+  line-height: 1.3;
+  color: var(--muted);
 }
 
 .stat-tile dd {
@@ -299,71 +161,158 @@ body {
   font-size: 20px;
   font-weight: 700;
   line-height: 1.2;
-  color: #202124;
+}
+
+.stat-primary .stat-today {
+  font-size: 30px;
+  color: var(--accent);
 }
 
 .stat-total {
   font-size: 11px;
-  color: #5f6368;
+  color: var(--muted);
 }
 
-.stat-total span {
-  font-weight: 600;
-  color: #3c4043;
+.footnote {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
 }
 
-.stats-footer {
+/* Settings view. */
+.group-title {
+  margin: 14px 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.group-extra {
+  border-top: 1px solid var(--border);
+}
+
+.row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 12px;
+  min-height: 40px;
+  padding: 8px 12px;
 }
 
-.stats-note {
-  font-size: 11px;
-  color: #5f6368;
-}
-
-.stats-reset {
-  font: inherit;
-  font-size: 11px;
-  padding: 4px 8px;
-  border: 1px solid #dadce0;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #202124;
+label.row {
   cursor: pointer;
 }
 
-.stats-reset:hover {
-  background: #f1f3f4;
+label.row:hover {
+  background: var(--hover);
 }
 
-.shortcuts {
-  margin-top: 12px;
-  background: #ffffff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  padding: 10px;
+.group > .row + .row,
+.group-extra > .row + .row {
+  border-top: 1px solid var(--border);
 }
 
-.shortcuts h2 {
-  margin: 0 0 6px;
+.row small {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.note {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+.note-caution {
+  margin: 0 8px 8px;
+  border: 1px solid var(--caution-border);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: var(--caution-bg);
+  color: var(--caution-text);
   font-size: 12px;
-  color: #5f6368;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+}
+
+.note-danger {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented label {
+  position: relative;
+  cursor: pointer;
+}
+
+.segmented label + label {
+  border-left: 1px solid var(--border);
+}
+
+/* Visually hidden but focusable radio; the span is the visible segment. */
+.segmented input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segmented span {
+  display: block;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.segmented input:checked + span {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.segmented input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
 }
 
 .shortcut-list {
   list-style: none;
-  margin: 0 0 8px;
-  padding: 0;
+  margin: 0;
+  padding: 4px 12px;
   display: grid;
   /* minmax(0, 1fr): a long command name must not widen the track past the box. */
   grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
 }
 
 .shortcut-list li {
@@ -371,8 +320,13 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  padding: 6px 0;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.shortcut-list li + li {
+  border-top: 1px solid var(--border);
 }
 
 /* Long names wrap onto a second line so they stay readable. */
@@ -386,143 +340,50 @@ body {
   font: inherit;
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 6px;
-  border: 1px solid #dadce0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
   border-bottom-width: 2px;
   border-radius: 4px;
-  background: #f8f9fa;
+  background: var(--surface-2);
 }
 
-.shortcut-empty {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: #5f6368;
-}
-
-.secondary-button {
+.link-button,
+.text-button {
   font: inherit;
   font-size: 12px;
-  padding: 6px 10px;
-  border: 1px solid #dadce0;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #0b57d0;
+  font-weight: 600;
+  border: none;
+  background: transparent;
   cursor: pointer;
 }
 
-.secondary-button:hover {
-  background: #f1f3f4;
+.link-button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  color: var(--accent);
 }
 
-/* Dark theme: html[data-theme] is set by popup.js from the Theme setting
-   (Auto resolves from the system setting). */
-html[data-theme="dark"] {
-  color-scheme: dark;
+.link-button:hover,
+.text-button:hover {
+  background: var(--hover);
 }
 
-html[data-theme="dark"] body {
-  background: #202124;
-  color: #e8eaed;
+.text-button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--danger);
 }
 
-html[data-theme="dark"] .toggle-row,
-html[data-theme="dark"] .speed,
-html[data-theme="dark"] .danger-zone,
-html[data-theme="dark"] .shortcuts,
-html[data-theme="dark"] .stats,
-html[data-theme="dark"] .about {
-  background: #28292c;
-  border-color: #3c4043;
+.about {
+  margin: 14px 2px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
 }
 
-html[data-theme="dark"] .danger-zone h2,
-html[data-theme="dark"] .speed h2,
-html[data-theme="dark"] .setting-help,
-html[data-theme="dark"] .shortcuts h2,
-html[data-theme="dark"] .stats h2,
-html[data-theme="dark"] .about h2,
-html[data-theme="dark"] .stats-caption,
-html[data-theme="dark"] .stats-note,
-html[data-theme="dark"] .stat-tile dt,
-html[data-theme="dark"] .stat-total,
-html[data-theme="dark"] .shortcut-empty {
-  color: #9aa0a6;
-}
-
-html[data-theme="dark"] .stat-tile {
-  background: #202124;
-  border-color: #3c4043;
-}
-
-html[data-theme="dark"] .stat-today {
-  color: #e8eaed;
-}
-
-html[data-theme="dark"] .stat-total span {
-  color: #bdc1c6;
-}
-
-html[data-theme="dark"] .shortcut-list kbd {
-  background: #303134;
-  border-color: #5f6368;
-  color: #e8eaed;
-}
-
-html[data-theme="dark"] .secondary-button,
-html[data-theme="dark"] .stats-reset {
-  background: #303134;
-  border-color: #5f6368;
-  color: #e8eaed;
-}
-
-html[data-theme="dark"] .secondary-button {
-  color: #8ab4f8;
-}
-
-html[data-theme="dark"] .secondary-button:hover,
-html[data-theme="dark"] .stats-reset:hover {
-  background: #3c4043;
-}
-
-html[data-theme="dark"] .danger-note {
-  color: #f28b82;
-}
-
-html[data-theme="dark"] .caution {
-  background: #2b2612;
-  border-color: #fdd663;
-  color: #fdd663;
-}
-
-html[data-theme="dark"] .disclaimer {
-  background: #2b2612;
-  border-color: #5c4a00;
-  color: #e3c77a;
-}
-
-html[data-theme="dark"] .support-link {
-  color: #8ab4f8;
-}
-
-html[data-theme="dark"] .appearance {
-  background: #28292c;
-  border-color: #3c4043;
-}
-
-html[data-theme="dark"] .appearance h2 {
-  color: #9aa0a6;
-}
-
-html[data-theme="dark"] .segmented,
-html[data-theme="dark"] .segmented label + label {
-  border-color: #5f6368;
-}
-
-html[data-theme="dark"] .segmented span {
-  color: #e8eaed;
-}
-
-html[data-theme="dark"] .segmented input:checked + span {
-  background: #8ab4f8;
-  color: #062e6f;
+.about a {
+  color: var(--accent);
 }

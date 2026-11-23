@@ -38,8 +38,8 @@ function renderStats(stats) {
   STAT_FIELDS.forEach((field) => {
     const todayEl = document.querySelector(`[data-stat="today-${field}"]`);
     const totalEl = document.querySelector(`[data-stat="total-${field}"]`);
-    if (todayEl) todayEl.textContent = String(Number(today[field]) || 0);
-    if (totalEl) totalEl.textContent = String(Number(totals[field]) || 0);
+    if (todayEl) todayEl.textContent = (Number(today[field]) || 0).toLocaleString();
+    if (totalEl) totalEl.textContent = (Number(totals[field]) || 0).toLocaleString();
   });
 }
 
@@ -75,7 +75,7 @@ function initStats() {
 }
 
 
-/** Wires the "Show the extension" checkbox. */
+/** Wires the "Show sidebar in Gmail" checkbox. */
 function initShowExtension(checkbox, stored) {
   checkbox.checked = stored[SHOW_EXTENSION_KEY] !== false;
 
@@ -201,8 +201,39 @@ function initTheme(stored) {
   systemDarkQuery.addEventListener("change", () => applyPopupTheme(preference));
 }
 
+/**
+ * Switches between the stats view and the Settings view. The popup always opens
+ * on stats; focus moves to the other view's header button for keyboard users.
+ */
+function initViews() {
+  const mainView = document.getElementById("main-view");
+  const settingsView = document.getElementById("settings-view");
+  const openButton = document.getElementById("open-settings");
+  const closeButton = document.getElementById("close-settings");
+  if (!mainView || !settingsView || !openButton || !closeButton) return;
+
+  const showSettings = (show, moveFocus) => {
+    mainView.hidden = show;
+    settingsView.hidden = !show;
+    openButton.setAttribute("aria-expanded", String(show));
+    document.body.scrollTop = 0;
+    if (moveFocus) (show ? closeButton : openButton).focus();
+  };
+  // event.detail is 0 for keyboard activation: only then move focus (avoids a focus
+  // ring appearing after a mouse click).
+  openButton.addEventListener("click", (event) => showSettings(true, event.detail === 0));
+  closeButton.addEventListener("click", (event) => showSettings(false, event.detail === 0));
+  settingsView.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    // Escape returns to stats instead of closing the whole popup.
+    event.preventDefault();
+    showSettings(false, true);
+  });
+}
+
 /** Handles init. */
 async function init() {
+  initViews();
   initStats();
   initShortcuts();
   const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY, FAST_MODE_KEY, THEME_KEY]);
