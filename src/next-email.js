@@ -614,7 +614,7 @@
       GC.showToast(STRINGS.toast.openedNextEmail);
     } catch (error) {
       stopTargetLogTimer();
-      setLog(`Load Next Email failed: ${error.message || "Go to next page failed."}`);
+      GC.reportError(`Load Next Email failed: ${error.message || "Go to next page failed."}`);
     } finally {
       stopTargetLogTimer();
       if (manageWorking) GC.setWorking(false);

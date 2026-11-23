@@ -9,25 +9,19 @@
     installUndoOfferListeners, keepElInView, makeDraggable,
     renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
 
-  let successTimer = null;
   let proceedConfirmationResolver = null;
   let proceedAutoCountdownTimer = null;
   const toastQueue = [];
   let toastQueueActive = false;
-  /** Handles flash success. */
+  /** Shows a success message in the status area. */
   function flashSuccess(message = STRINGS.ui.completed) {
-    const badge = document.getElementById("gc-success");
-    if (!badge) return;
+    showToast(message, { type: "success" });
+  }
 
-    const label = badge.querySelector(".gc-success-text");
-    if (label) label.textContent = message;
-
-    badge.classList.add("gc-success-visible");
-    if (successTimer) clearTimeout(successTimer);
-    successTimer = setTimeout(() => {
-      badge.classList.remove("gc-success-visible");
-      successTimer = null;
-    }, 2200);
+  /** Shows an error in the status area (and the console log). */
+  function reportError(message) {
+    setLog(message);
+    showToast(message, { type: "error", durationMs: 5000 });
   }
 
   /** Handles flush toast queue. */
@@ -47,6 +41,9 @@
       if (!next) continue;
 
       toast.textContent = next.message;
+      toast.dataset.type = next.type;
+      // Errors interrupt screen readers; everything else waits politely.
+      toast.setAttribute("role", next.type === "error" ? "alert" : "status");
       toast.classList.add("gc-toast-visible");
       await sleep(next.durationMs);
       toast.classList.remove("gc-toast-visible");
@@ -56,12 +53,16 @@
     toastQueueActive = false;
   }
 
-  /** Handles show toast. */
+  /**
+   * Queues a message for the status area. options.type is "info" (default),
+   * "success", "warning" or "error".
+   */
   function showToast(message, options = {}) {
     const durationMs = options.durationMs || 2400;
+    const type = options.type || "info";
     const toast = document.getElementById("gc-toast");
     if (!toast) return;
-    toastQueue.push({ message, durationMs });
+    toastQueue.push({ message, durationMs, type });
     void flushToastQueue();
   }
 
@@ -503,31 +504,29 @@
         ),
         h("button", { class: "gc-btn gc-btn-stop", id: "gc-stop-execution", disabled: true }, ui.stopExecution)
       ),
+      // Single status area: confirmation prompts, messages and undo offers.
       h(
         "div",
-        { id: "gc-confirm", role: "alert", "aria-live": "assertive" },
-        h("p", { id: "gc-confirm-message" }),
+        { id: "gc-status" },
         h(
           "div",
-          { id: "gc-confirm-actions" },
-          h("button", { type: "button", id: "gc-confirm-proceed" }, ui.proceed),
-          h("button", { type: "button", id: "gc-confirm-stop" }, ui.stop)
+          { id: "gc-confirm", role: "alert", "aria-live": "assertive" },
+          h("p", { id: "gc-confirm-message" }),
+          h(
+            "div",
+            { id: "gc-confirm-actions" },
+            h("button", { type: "button", id: "gc-confirm-proceed" }, ui.proceed),
+            h("button", { type: "button", id: "gc-confirm-stop" }, ui.stop)
+          )
+        ),
+        h("div", { id: "gc-toast", role: "status", "aria-live": "polite", "data-type": "info" }),
+        h(
+          "div",
+          { id: "gc-undo", role: "status", "aria-live": "polite" },
+          h("span", { id: "gc-undo-message" }),
+          h("button", { type: "button", id: "gc-undo-action" }, ui.undoArchive),
+          h("button", { type: "button", id: "gc-undo-dismiss", "aria-label": ui.undoDismissAria }, "\u00d7")
         )
-      ),
-      h(
-        "div",
-        { id: "gc-success", "aria-live": "polite" },
-        h("span", { class: "gc-success-icon", "aria-hidden": "true" }, "\u2713"),
-        h("span", { class: "gc-success-text" }, ui.completed)
-      ),
-      h("div", { id: "gc-log" }, ui.ready),
-      h("div", { id: "gc-toast", role: "status", "aria-live": "polite" }),
-      h(
-        "div",
-        { id: "gc-undo", role: "status", "aria-live": "polite" },
-        h("span", { id: "gc-undo-message" }),
-        h("button", { type: "button", id: "gc-undo-action" }, ui.undoArchive),
-        h("button", { type: "button", id: "gc-undo-dismiss", "aria-label": ui.undoDismissAria }, "\u00d7")
       )
     );
     return root;
@@ -613,7 +612,7 @@
   Object.assign(GC, { askProceedConfirmation, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
-    refreshOpenEmailState, renderContextBar, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
+    refreshOpenEmailState, renderContextBar, reportError, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
     setExtensionVisibility, setProceedButtonLabel, setProgress, setWorking, setWorkingStep, showToast, startProceedAutoCountdown,
     stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, toastQueue,
     updateExecuteSelectedState });

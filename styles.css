@@ -406,12 +406,14 @@
   background: #fafbfc;
 }
 
-#gc-log {
+#gc-status {
+  display: grid;
   border-top: 1px solid #e8eaed;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #1967d2;
-  min-height: 18px;
+  padding-top: 8px;
+}
+
+#gc-status:not(:has(.gc-confirm-visible, .gc-toast-visible, .gc-undo-visible)) {
+  display: none;
 }
 
 #gc-confirm {
@@ -458,34 +460,6 @@
 #gc-confirm-stop {
   border-color: #d93025;
   color: #d93025;
-}
-
-#gc-success {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 12px 8px;
-  padding: 6px 8px;
-  border: 1px solid #c7e6cd;
-  border-radius: 8px;
-  background: #eaf6ee;
-  color: #1e8e3e;
-  font-size: 12px;
-  font-weight: 600;
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-#gc-success.gc-success-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.gc-success-icon {
-  font-size: 13px;
-  line-height: 1;
 }
 
 #gc-toggle {
@@ -570,6 +544,28 @@
   max-height: 0;
   overflow: hidden;
   transition: opacity 180ms ease, transform 180ms ease, max-height 180ms ease, padding 180ms ease;
+}
+
+#gc-toast[data-type="success"] {
+  background: #e6f4ea;
+  color: #137333;
+  box-shadow: none;
+  border: 1px solid #c7e6cd;
+}
+
+#gc-toast[data-type="warning"] {
+  background: #fef7e0;
+  color: #7a4d00;
+  box-shadow: none;
+  border: 1px solid #f9e1a0;
+}
+
+#gc-toast[data-type="error"] {
+  background: #fce8e6;
+  color: #b3261e;
+  box-shadow: none;
+  border: 1px solid #f6c3bf;
+  font-weight: 600;
 }
 
 #gc-toast.gc-toast-visible {

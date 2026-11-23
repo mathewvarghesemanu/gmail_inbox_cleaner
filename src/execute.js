@@ -94,7 +94,7 @@
     } catch (error) {
       if (!selectedActionIds.includes(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE)) throw error;
       setLog(`${error?.message || error} Continuing without Go to Next Email.`);
-      showToast(STRINGS.toast.nextTargetUnavailable, { durationMs: 3500 });
+      showToast(STRINGS.toast.nextTargetUnavailable, { durationMs: 3500, type: "warning" });
       return selectedActionIds.filter((id) => id !== ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
     }
   }
@@ -145,7 +145,7 @@
       // Surface the reason instead of letting the finally block overwrite it
       // with "Execution complete" (which looked like nothing happened).
       failureMessage = error?.message || String(error);
-      showToast(STRINGS.toast.executionFailed, { durationMs: 3500 });
+      showToast(`${STRINGS.toast.executionFailed}: ${failureMessage}`, { durationMs: 5000, type: "error" });
     } finally {
       clearCachedNextEmailTarget();
       setLog(

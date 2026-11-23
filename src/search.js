@@ -238,7 +238,7 @@
       setLog("Search ready.");
       GC.showToast(STRINGS.toast.searchComplete);
     } catch (error) {
-      setLog(error.message || "Could not select similar emails.");
+      GC.reportError(error.message || "Could not select similar emails.");
     } finally {
       if (manageWorking) GC.setWorking(false);
     }

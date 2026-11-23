@@ -61,7 +61,6 @@
       proceedCountdown: (seconds) => `Proceed (${seconds})`,
       stop: "Stop",
       completed: "Completed",
-      ready: "Ready.",
       actionFallback: "Action",
       undoArchive: "Undo archive",
       deleteConfirm: "Delete",
@@ -81,7 +80,6 @@
       executionStopped: "Execution stopped",
       nextTargetCached: "Next email target cached",
       searchComplete: "Search complete",
-      archived: "Archived",
       archiveComplete: "Archive complete",
       alreadyUnsubscribed: (sender) => `Already unsubscribed: ${sender}`,
       unsubscribeComplete: "Unsubscribe complete",
@@ -92,7 +90,6 @@
       noCachedTarget: "No cached email target",
       nextTargetUnavailable: "Couldn't find the next email; skipping Go to Next Email",
       executionFailed: "Execute Selected failed",
-      deleted: "Moved to Trash",
       deleteComplete: "Delete complete",
       deleteCancelled: "Delete cancelled",
       deleteDisabled: "Delete is turned off in the extension popup"

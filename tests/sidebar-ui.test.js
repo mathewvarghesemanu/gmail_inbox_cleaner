@@ -128,3 +128,24 @@ describe("working progress", () => {
     expect(row.classList.contains("gc-row-active")).toBe(false);
   });
 });
+
+describe("status area", () => {
+  it("replaces the static log and success badge with one typed message area", () => {
+    load();
+    expect(document.getElementById("gc-log")).toBeNull();
+    expect(document.getElementById("gc-success")).toBeNull();
+    const status = document.getElementById("gc-status");
+    for (const id of ["gc-confirm", "gc-toast", "gc-undo"]) {
+      expect(status.contains(document.getElementById(id))).toBe(true);
+    }
+  });
+
+  it("styles errors and announces them assertively", () => {
+    const GC = load();
+    GC.reportError("Could not find Gmail's Delete button.");
+    const toast = document.getElementById("gc-toast");
+    expect(toast.textContent).toBe("Could not find Gmail's Delete button.");
+    expect(toast.dataset.type).toBe("error");
+    expect(toast.getAttribute("role")).toBe("alert");
+  });
+});

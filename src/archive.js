@@ -38,7 +38,6 @@
       findControl: findArchiveControl,
       keyFallback: ["e"],
       stats: (count) => ({ pagesArchived: 1, conversationsArchived: count }),
-      doneToast: STRINGS.toast.archived,
       completeToast: STRINGS.toast.archiveComplete
     },
     delete: {
@@ -47,7 +46,6 @@
       findControl: () => GC.findDeleteControl(),
       keyFallback: null,
       stats: (count) => ({ deleted: count }),
-      doneToast: STRINGS.toast.deleted,
       completeToast: STRINGS.toast.deleteComplete
     }
   };
@@ -131,11 +129,10 @@
       await applyToSelected(kind);
       recordStats(config.stats(selectedCount));
       setLog(`${kind === "delete" ? "Delete" : "Archive"} action sent for current page.`);
-      GC.flashSuccess(config.doneToast);
-      GC.showToast(config.completeToast);
+      GC.flashSuccess(config.completeToast);
       GC.offerGmailUndo(kind);
     } catch (error) {
-      setLog(error.message || `${kind === "delete" ? "Delete" : "Archive"} failed.`);
+      GC.reportError(error.message || `${kind === "delete" ? "Delete" : "Archive"} failed.`);
     } finally {
       if (manageWorking) GC.setWorking(false);
     }
@@ -214,8 +211,7 @@
             await sleep(800);
           } else {
             setLog(`Stopped after ${cycles} cycles: list did not change after retries.`);
-            GC.flashSuccess(config.doneToast);
-            GC.showToast(config.completeToast);
+            GC.flashSuccess(config.completeToast);
             return;
           }
         } else {
@@ -228,10 +224,9 @@
         return;
       }
       setLog(`${kind === "delete" ? "Delete" : "Archive"} loop completed after ${cycles} cycle(s).`);
-      GC.flashSuccess(config.doneToast);
-      GC.showToast(config.completeToast);
+      GC.flashSuccess(config.completeToast);
     } catch (error) {
-      setLog(error.message || `${kind === "delete" ? "Delete" : "Archive"} across all pages failed.`);
+      GC.reportError(error.message || `${kind === "delete" ? "Delete" : "Archive"} across all pages failed.`);
     } finally {
       if (undoTracker.sender && undoTracker.cycles > 0) GC.offerUndoAllArchive(undoTracker.sender);
       if (manageWorking) GC.setWorking(false);
@@ -266,7 +261,7 @@
       setLog("Showing archived emails.");
       GC.showToast(STRINGS.toast.showingArchived);
     } catch (err) {
-      setLog("Could not run archived search: " + err.message);
+      GC.reportError("Could not run archived search: " + err.message);
     } finally {
       GC.setWorking(false);
     }
