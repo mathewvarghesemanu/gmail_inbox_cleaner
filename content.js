@@ -56,6 +56,39 @@
   const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
   /** Default suggested_key, shown on the button; users can rebind it in Chrome. */
   const EXECUTE_SELECTED_SHORTCUT_LABEL = IS_MAC ? "\u2318\u21e7E" : "Ctrl+Shift+E";
+  /** Composite command: Select Like Open, then Archive All Pages. */
+  const ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND = "archive-all-pages-like-open";
+  const STOP_EXECUTION_COMMAND = "stop-execution";
+  /** Manifest command name -> sidebar action button id. */
+  const COMMAND_ACTION_IDS = {
+    "unsubscribe-open": ACTION_BUTTON_IDS.UNSUBSCRIBE,
+    "select-like-open": ACTION_BUTTON_IDS.SELECT_LIKE_OPEN,
+    "archive-this-page": ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE,
+    "archive-all-pages": ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES,
+    "go-to-inbox": ACTION_BUTTON_IDS.GO_TO_INBOX,
+    "go-to-next-email": ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE
+  };
+  /** Manifest suggested_key defaults, used until the real bindings are fetched. */
+  const DEFAULT_COMMAND_SHORTCUTS = {
+    [EXECUTE_SELECTED_COMMAND]: EXECUTE_SELECTED_SHORTCUT_LABEL,
+    "unsubscribe-open": IS_MAC ? "\u2318\u21e7U" : "Ctrl+Shift+U",
+    "go-to-next-email": IS_MAC ? "\u2318\u21e7Y" : "Ctrl+Shift+Y",
+    [ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND]: IS_MAC ? "\u2318\u21e7K" : "Ctrl+Shift+K"
+  };
+  /** Sidebar element id -> command whose shortcut is shown on it. */
+  const SHORTCUT_HINT_TARGETS = {
+    "gc-execute-selected": EXECUTE_SELECTED_COMMAND,
+    [ACTION_BUTTON_IDS.UNSUBSCRIBE]: "unsubscribe-open",
+    [ACTION_BUTTON_IDS.SELECT_LIKE_OPEN]: "select-like-open",
+    [ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE]: "archive-this-page",
+    [ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES]: "archive-all-pages",
+    [ACTION_BUTTON_IDS.GO_TO_INBOX]: "go-to-inbox",
+    [ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE]: "go-to-next-email",
+    "gc-stop-execution": STOP_EXECUTION_COMMAND
+  };
+  /** Local-only usage counters (never sent anywhere). Shape documented in recordStats. */
+  const STATS_KEY = "gcStats";
+  const STATS_DAYS_KEPT = 30;
   const ROOT_POS_KEY = "gcRootPos";
   const DEFAULT_SCAN_PAGE_LIMIT = 5;
   const MIN_SCAN_PAGE_LIMIT = 1;
@@ -684,8 +717,7 @@
     const executeButton = document.getElementById("gc-execute-selected");
     if (!executeButton) return;
     // Respect the popup's hide toggle: no hidden actions from a hidden panel.
-    const root = document.getElementById("gc-root");
-    if (root && root.style.display === "none") return;
+    if (isSidebarHiddenByToggle()) return;
 
     if (state.working || state.batchExecuting) {
       showToast("Already running");
@@ -698,21 +730,209 @@
     triggerExecuteSelected();
   }
 
-  /** Listens for the Chrome command relayed by the service worker. */
+  /** Returns whether the sidebar is hidden by the popup's "Show the extension" toggle. */
+  function isSidebarHiddenByToggle() {
+    const root = document.getElementById("gc-root");
+    return !!root && root.style.display === "none";
+  }
+
+  /** Returns a button's label text, ignoring any shortcut hint span. */
+  function getButtonLabel(el, fallback = "Action") {
+    if (!el) return fallback;
+    const text = [...el.childNodes]
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent)
+      .join("")
+      .trim();
+    return text || fallback;
+  }
+
+  /** Runs Select Like Open then Archive All Pages as one stoppable batch. */
+  async function actionArchiveAllPagesLikeOpen() {
+    if (state.working || state.batchExecuting) return;
+    state.batchExecuting = true;
+    state.stopExecutionRequested = false;
+    setWorking(true);
+    try {
+      const sender = findOpenEmailSender();
+      if (!sender) {
+        setLog("Open an email first so I can detect its sender.");
+        return;
+      }
+      // Drop any previous lock so a failed search cannot archive the old sender.
+      state.lockedSender = "";
+      state.lockedQuery = "";
+      await actionSelectLikeOpen({ skipWorking: true });
+      if (shouldStopExecution()) {
+        setLog("Execution stopped.");
+        showToast("Execution stopped");
+        return;
+      }
+      if (!state.lockedQuery || state.lockedSender !== normalizeEmail(sender)) return;
+      await actionArchiveRecursive({ skipWorking: true });
+      recordStats({ batches: 1 });
+    } finally {
+      state.batchExecuting = false;
+      state.stopExecutionRequested = false;
+      setWorking(false);
+    }
+  }
+
+  /** Dispatches a manifest command (relayed by the service worker) to its sidebar action. */
+  function runCommandFromShortcut(command) {
+    if (!document.getElementById("gc-root")) return;
+    // Respect the popup's hide toggle: no hidden actions from a hidden panel.
+    if (isSidebarHiddenByToggle()) return;
+
+    if (command === EXECUTE_SELECTED_COMMAND) {
+      runExecuteSelectedFromShortcut();
+      return;
+    }
+    if (command === STOP_EXECUTION_COMMAND) {
+      if (state.batchExecuting) {
+        requestStopExecution();
+        showToast("Stop requested");
+      } else {
+        showToast("Nothing to stop");
+      }
+      return;
+    }
+    if (state.working || state.batchExecuting) {
+      showToast("Already running");
+      return;
+    }
+
+    // Same enable rules as the sidebar buttons (e.g. most actions need an open email).
+    findOpenEmailSender();
+    refreshControlStates();
+
+    if (command === ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND) {
+      if (!state.openSender) {
+        showToast("Open an email first");
+        return;
+      }
+      void runWithElapsedToast("Select Like Open + Archive All Pages", async () => {
+        await actionArchiveAllPagesLikeOpen();
+      });
+      return;
+    }
+
+    const actionId = COMMAND_ACTION_IDS[command];
+    if (!actionId) return;
+    const button = document.getElementById(actionId);
+    if (!button || button.disabled) {
+      showToast("Open an email first");
+      return;
+    }
+    void runWithElapsedToast(getButtonLabel(button), async () => {
+      await runActionByButtonId(actionId);
+    });
+  }
+
+  /** Renders shortcut hints (command name -> shortcut string) onto sidebar buttons. */
+  function applyShortcutHints(shortcuts) {
+    Object.entries(SHORTCUT_HINT_TARGETS).forEach(([elementId, command]) => {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const label = getButtonLabel(el);
+      el.querySelector(".gc-shortcut-hint")?.remove();
+      const shortcut = String(shortcuts?.[command] || "").trim();
+      if (!shortcut) {
+        el.removeAttribute("title");
+        return;
+      }
+      const hint = document.createElement("span");
+      hint.className = "gc-shortcut-hint";
+      hint.textContent = shortcut;
+      el.appendChild(hint);
+      el.title = `${label} (${shortcut})`;
+    });
+  }
+
+  /** Shows default shortcuts, then the user's real bindings fetched from the service worker. */
+  function loadShortcutHints() {
+    applyShortcutHints(DEFAULT_COMMAND_SHORTCUTS);
+    if (state.extensionContextInvalidated) return;
+    try {
+      chrome.runtime.sendMessage({ type: "gc-get-shortcuts" }, (response) => {
+        if (chrome.runtime?.lastError || !response?.ok || !response.shortcuts) return;
+        applyShortcutHints(response.shortcuts);
+      });
+    } catch (error) {
+      if (isContextInvalidatedError(error)) markExtensionContextInvalidated(error);
+    }
+  }
+
+  /** Listens for Chrome commands relayed by the service worker. */
   function installShortcutCommandListener() {
     if (window.__gmailCleanerShortcutsInstalled) return;
     if (!chrome.runtime?.onMessage) return;
     window.__gmailCleanerShortcutsInstalled = true;
     try {
       chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-        if (message?.type !== "gc-execute-selected") return;
-        runExecuteSelectedFromShortcut();
+        if (message?.type === "gc-execute-selected") {
+          // Legacy message type, still sent for the execute-selected command.
+          runCommandFromShortcut(EXECUTE_SELECTED_COMMAND);
+        } else if (message?.type === "gc-command" && typeof message.command === "string") {
+          runCommandFromShortcut(message.command);
+        } else {
+          return;
+        }
         sendResponse({ ok: true });
       });
     } catch (error) {
       // Extension context can be invalidated after a reload; the next page load re-installs.
       console.log("[GmailCleaner] Shortcut listener not installed", error);
     }
+  }
+
+  /** Returns the local-date key (YYYY-MM-DD) used for per-day stats. */
+  function getStatsDayKey(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  const STAT_FIELDS = ["unsubscribed", "conversationsArchived", "pagesArchived", "batches"];
+  let statsWriteChain = Promise.resolve();
+
+  /**
+   * Adds counts to the on-device stats in chrome.storage.local[STATS_KEY]:
+   * { totals: {unsubscribed, conversationsArchived, pagesArchived, batches},
+   *   days: { "YYYY-MM-DD": {same fields} } } keeping the last STATS_DAYS_KEPT days.
+   * Writes are serialized so concurrent increments are not lost. Never leaves the device.
+   */
+  function recordStats(delta) {
+    statsWriteChain = statsWriteChain.then(
+      () =>
+        new Promise((resolve) => {
+          // safeStorageGet skips the callback on errors; never stall the chain.
+          const timer = setTimeout(resolve, 3000);
+          safeStorageGet([STATS_KEY], (result) => {
+            clearTimeout(timer);
+            const stored = result?.[STATS_KEY];
+            const stats = stored && typeof stored === "object" ? stored : {};
+            const totals = stats.totals && typeof stats.totals === "object" ? stats.totals : {};
+            const days = stats.days && typeof stats.days === "object" ? stats.days : {};
+            const todayKey = getStatsDayKey();
+            const today = days[todayKey] && typeof days[todayKey] === "object" ? days[todayKey] : {};
+            STAT_FIELDS.forEach((field) => {
+              const add = Math.max(0, Number(delta?.[field]) || 0);
+              if (!add) return;
+              totals[field] = (Number(totals[field]) || 0) + add;
+              today[field] = (Number(today[field]) || 0) + add;
+            });
+            days[todayKey] = today;
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - (STATS_DAYS_KEPT - 1));
+            const cutoffKey = getStatsDayKey(cutoff);
+            Object.keys(days).forEach((key) => {
+              if (key < cutoffKey) delete days[key];
+            });
+            safeStorageSet({ [STATS_KEY]: { ...stats, totals, days } });
+            resolve();
+          });
+        })
+    );
   }
 
   /** Requests stop execution. */
@@ -787,6 +1007,7 @@
           await waitForListToLoadForBatchStep();
         }
       }
+      recordStats({ batches: 1 });
       if (shouldStopExecution()) {
         setLog("Execution stopped.");
         showToast("Execution stopped");
@@ -1394,15 +1615,23 @@
   }
 
   /** Checks whether has any selected conversation row. */
+  function isConversationRowSelected(row) {
+    if ((row.getAttribute("aria-selected") || "").toLowerCase() === "true") return true;
+    const rowCheckbox = row.querySelector("[role='checkbox']");
+    return (rowCheckbox?.getAttribute("aria-checked") || "").toLowerCase() === "true";
+  }
+
   function hasAnySelectedConversationRow() {
     const rows = getThreadRows();
     if (!rows.length) return false;
+    return rows.some(isConversationRowSelected);
+  }
 
-    return rows.some((row) => {
-      if ((row.getAttribute("aria-selected") || "").toLowerCase() === "true") return true;
-      const rowCheckbox = row.querySelector("[role='checkbox']");
-      return (rowCheckbox?.getAttribute("aria-checked") || "").toLowerCase() === "true";
-    });
+  /** Best-effort count of conversations about to be archived on this page (for local stats). */
+  function countSelectedConversationRows() {
+    const rows = getThreadRows();
+    const selected = rows.filter(isConversationRowSelected).length;
+    return selected || rows.length;
   }
 
   /** Waits for selection to settle. */
@@ -2640,7 +2869,9 @@
       await selectAllMatchingSearch({ includeAllInSearch: false });
       await waitForSelectionToSettle();
       setLog(`${state.selectedConversationsText} Archiving current page...`);
+      const selectedCount = countSelectedConversationRows();
       await archiveSelected();
+      recordStats({ pagesArchived: 1, conversationsArchived: selectedCount });
       setLog("Archive action sent for current page.");
       flashSuccess("Archived");
       showToast("Archive complete");
@@ -2682,7 +2913,9 @@
         await selectAllMatchingSearch({ includeAllInSearch: false });
         await waitForSelectionToSettle();
         setLog(`Cycle ${cycles + 1}: archiving...`);
+        const selectedCount = countSelectedConversationRows();
         await archiveSelected();
+        recordStats({ pagesArchived: 1, conversationsArchived: selectedCount });
         await sleep(2000);
 
         cycles += 1;
@@ -2736,6 +2969,7 @@
       }
       const result = await clickUnsubscribeInOpenEmail();
       await dismissUnsubscribeDialogs();
+      recordStats({ unsubscribed: 1 });
       setLog(result);
       showToast("Unsubscribe complete");
     } catch (error) {
@@ -3064,7 +3298,7 @@
             </div>
           </details>
         </div>
-        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled title="Execute Selected (${EXECUTE_SELECTED_SHORTCUT_LABEL})">Execute Selected <span class="gc-shortcut-hint">${EXECUTE_SELECTED_SHORTCUT_LABEL}</span></button>
+        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled>Execute Selected</button>
         <button class="gc-btn gc-btn-stop" id="gc-stop-execution" disabled>Stop Execution</button>
       </div>
       <div id="gc-confirm" role="alert" aria-live="assertive">
@@ -3095,7 +3329,7 @@
 
     Object.values(ACTION_BUTTON_IDS).forEach((buttonId) => {
       document.getElementById(buttonId)?.addEventListener("click", () => {
-        const label = document.getElementById(buttonId)?.textContent?.trim() || "Action";
+        const label = getButtonLabel(document.getElementById(buttonId));
         void runWithElapsedToast(label, async () => {
           await runActionByButtonId(buttonId);
         });
@@ -3130,6 +3364,7 @@
       resolveProceedConfirmation(false);
     });
     restoreActionCheckboxState();
+    loadShortcutHints();
     renderNextEmailTargetSection();
     findOpenEmailSender();
     refreshControlStates();
