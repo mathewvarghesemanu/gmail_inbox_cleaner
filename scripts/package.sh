@@ -7,7 +7,6 @@ set -euo pipefail
 RUNTIME_FILES=(
   manifest.json
   background.js
-  content.js
   styles.css
   popup.html
   popup.js
@@ -15,6 +14,7 @@ RUNTIME_FILES=(
 )
 # Globs expanded relative to the repo root.
 RUNTIME_GLOBS=(
+  "src/*.js"
   "icons/*.png"
 )
 

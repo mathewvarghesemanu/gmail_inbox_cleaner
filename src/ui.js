@@ -1,0 +1,526 @@
+// Sidebar UI: building, toasts, confirmations, control state, visibility.
+(() => {
+  const GC = window.__gc;
+  if (!GC || GC.skipLoad) return;
+
+  const { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, AUTO_PROCEED_SECONDS,
+    AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS, MAX_SCAN_PAGES_KEY,
+    ROOT_POS_KEY, SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
+    installUndoOfferListeners, keepElInView, makeDraggable, normalizeScanPageLimit,
+    renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
+
+  let successTimer = null;
+  let proceedConfirmationResolver = null;
+  let proceedAutoCountdownTimer = null;
+  const toastQueue = [];
+  let toastQueueActive = false;
+  /** Handles flash success. */
+  function flashSuccess(message = STRINGS.ui.completed) {
+    const badge = document.getElementById("gc-success");
+    if (!badge) return;
+
+    const label = badge.querySelector(".gc-success-text");
+    if (label) label.textContent = message;
+
+    badge.classList.add("gc-success-visible");
+    if (successTimer) clearTimeout(successTimer);
+    successTimer = setTimeout(() => {
+      badge.classList.remove("gc-success-visible");
+      successTimer = null;
+    }, 2200);
+  }
+
+  /** Handles flush toast queue. */
+  async function flushToastQueue() {
+    if (toastQueueActive) return;
+    toastQueueActive = true;
+
+    const toast = document.getElementById("gc-toast");
+    if (!toast) {
+      toastQueue.length = 0;
+      toastQueueActive = false;
+      return;
+    }
+
+    while (toastQueue.length > 0) {
+      const next = toastQueue.shift();
+      if (!next) continue;
+
+      toast.textContent = next.message;
+      toast.classList.add("gc-toast-visible");
+      await sleep(next.durationMs);
+      toast.classList.remove("gc-toast-visible");
+      await sleep(140);
+    }
+
+    toastQueueActive = false;
+  }
+
+  /** Handles show toast. */
+  function showToast(message, options = {}) {
+    const durationMs = options.durationMs || 2400;
+    const toast = document.getElementById("gc-toast");
+    if (!toast) return;
+    toastQueue.push({ message, durationMs });
+    void flushToastQueue();
+  }
+
+  /** Runs with elapsed toast. */
+  async function runWithElapsedToast(label, runner) {
+    const start = performance.now();
+    try {
+      await runner();
+    } finally {
+      const elapsed = performance.now() - start;
+      showToast(STRINGS.toast.elapsed(label, formatElapsedMs(elapsed)));
+    }
+  }
+
+  /** Handles hide proceed confirmation. */
+  function hideProceedConfirmation() {
+    stopProceedAutoCountdown();
+    const box = document.getElementById("gc-confirm");
+    if (!box) return;
+    box.classList.remove("gc-confirm-visible");
+  }
+
+  /** Updates proceed button label. */
+  function setProceedButtonLabel(label) {
+    const proceedBtn = document.getElementById("gc-confirm-proceed");
+    if (!proceedBtn) return;
+    proceedBtn.textContent = label;
+  }
+
+  /** Stops auto proceed countdown. */
+  function stopProceedAutoCountdown() {
+    if (proceedAutoCountdownTimer) {
+      clearInterval(proceedAutoCountdownTimer);
+      proceedAutoCountdownTimer = null;
+    }
+    setProceedButtonLabel(STRINGS.ui.proceed);
+  }
+
+  /** Starts auto proceed countdown. */
+  function startProceedAutoCountdown(seconds = AUTO_PROCEED_SECONDS) {
+    stopProceedAutoCountdown();
+    let remainingSeconds = Math.max(1, Number.parseInt(String(seconds ?? ""), 10) || AUTO_PROCEED_SECONDS);
+    setProceedButtonLabel(STRINGS.ui.proceedCountdown(remainingSeconds));
+    proceedAutoCountdownTimer = setInterval(() => {
+      remainingSeconds -= 1;
+      if (remainingSeconds <= 0) {
+        stopProceedAutoCountdown();
+        if (proceedConfirmationResolver) {
+          resolveProceedConfirmation(true);
+        }
+        return;
+      }
+      setProceedButtonLabel(STRINGS.ui.proceedCountdown(remainingSeconds));
+    }, 1000);
+  }
+
+  /** Resolves proceed confirmation. */
+  function resolveProceedConfirmation(result) {
+    const resolver = proceedConfirmationResolver;
+    proceedConfirmationResolver = null;
+    hideProceedConfirmation();
+    if (resolver) resolver(result);
+  }
+
+  /** Handles ask proceed confirmation. */
+  function askProceedConfirmation(message, options = {}) {
+    const box = document.getElementById("gc-confirm");
+    const messageEl = document.getElementById("gc-confirm-message");
+    if (!box || !messageEl) return Promise.resolve(false);
+
+    if (proceedConfirmationResolver) {
+      resolveProceedConfirmation(false);
+    }
+
+    messageEl.textContent = message;
+    box.classList.add("gc-confirm-visible");
+    if (options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
+      startProceedAutoCountdown(AUTO_PROCEED_SECONDS);
+    } else {
+      stopProceedAutoCountdown();
+    }
+
+    return new Promise((resolve) => {
+      proceedConfirmationResolver = resolve;
+    });
+  }
+
+  /** Sets working. */
+  function setWorking(next) {
+    state.working = next;
+    refreshControlStates();
+  }
+
+  /** Refreshes all control enabled/disabled states based on current working and email-open state. */
+  function refreshControlStates() {
+    const emailOpen = !!state.openSender;
+    const working = state.working;
+    const noEmailExempt = new Set([ACTION_BUTTON_IDS.GO_TO_INBOX, "gc-show-archived"]);
+
+    document.querySelectorAll(".gc-btn").forEach((btn) => {
+      if (working) {
+        btn.disabled = true;
+      } else if (!emailOpen) {
+        btn.disabled = !noEmailExempt.has(btn.id);
+      } else {
+        btn.disabled = false;
+      }
+    });
+
+    document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
+      checkbox.disabled = working || !emailOpen;
+    });
+
+    const workingEl = document.getElementById("gc-working");
+    if (workingEl) {
+      workingEl.classList.toggle("gc-working-visible", working);
+      workingEl.setAttribute("aria-hidden", working ? "false" : "true");
+    }
+
+    updateExecuteSelectedState();
+  }
+
+  /** Detects current email open state and refreshes controls. No-op while action in progress. */
+  function refreshOpenEmailState() {
+    if (state.working) return;
+    findOpenEmailSender();
+    refreshControlStates();
+  }
+
+  /** Loads the popup-configured scan page limit from storage. */
+  function syncScanPageLimitFromStorage() {
+    safeStorageGet([MAX_SCAN_PAGES_KEY], (result) => {
+      state.maxScanPages = normalizeScanPageLimit(result[MAX_SCAN_PAGES_KEY]);
+    });
+  }
+
+  /** Returns selected action ids. */
+  function getSelectedActionIds() {
+    return [...document.querySelectorAll(".gc-action-checkbox:checked")]
+      .map((checkbox) => checkbox.getAttribute("data-action-id") || "")
+      .filter(Boolean);
+  }
+
+  /** Checks whether action checked. */
+  function isActionChecked(actionId) {
+    return !!document.querySelector(`.gc-action-checkbox[data-action-id='${actionId}']:checked`);
+  }
+
+  /** Persists action checkbox state. */
+  function persistActionCheckboxState() {
+    const stateByAction = {};
+    document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
+      const actionId = checkbox.getAttribute("data-action-id") || "";
+      if (!actionId) return;
+      stateByAction[actionId] = checkbox.checked;
+    });
+    safeStorageSet({ [ACTION_CHECKBOX_STATE_KEY]: stateByAction });
+  }
+
+  /** Restores action checkbox state. */
+  function restoreActionCheckboxState() {
+    safeStorageGet([ACTION_CHECKBOX_STATE_KEY], (result) => {
+      const stored = result[ACTION_CHECKBOX_STATE_KEY];
+      const hasSaved = !!stored && typeof stored === "object";
+      const saved = hasSaved ? stored : {};
+
+      document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
+        const actionId = checkbox.getAttribute("data-action-id") || "";
+        if (!actionId) return;
+        checkbox.checked = actionId in saved ? saved[actionId] === true : DEFAULT_CHECKED_ACTION_IDS.has(actionId);
+      });
+      if (!hasSaved) persistActionCheckboxState();
+      renderNextEmailTargetSection();
+      updateExecuteSelectedState();
+    });
+  }
+
+  /** Updates execute selected state. */
+  function updateExecuteSelectedState() {
+    const executeButton = document.getElementById("gc-execute-selected");
+    const stopButton = document.getElementById("gc-stop-execution");
+    if (!executeButton) return;
+
+    const hasSelections = getSelectedActionIds().length > 0;
+    executeButton.dataset.ready = hasSelections ? "true" : "false";
+    executeButton.disabled = state.working || !hasSelections;
+    if (stopButton) {
+      stopButton.disabled = !state.batchExecuting;
+    }
+  }
+
+  /** Returns a button's label text, ignoring any shortcut hint span. */
+  function getButtonLabel(el, fallback = STRINGS.ui.actionFallback) {
+    if (!el) return fallback;
+    const text = [...el.childNodes]
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent)
+      .join("")
+      .trim();
+    return text || fallback;
+  }
+
+  /** Sets extension visibility. */
+  function setExtensionVisibility(enabled) {
+    const toggle = document.getElementById("gc-toggle");
+    const root = document.getElementById("gc-root");
+    if (toggle) toggle.style.display = enabled ? "" : "none";
+    if (root) {
+      if (!enabled) root.classList.add("gc-hidden");
+      root.style.display = enabled ? "" : "none";
+    }
+  }
+
+  /** Handles sync extension visibility from storage. */
+  function syncExtensionVisibilityFromStorage() {
+    if (state.extensionContextInvalidated) return;
+    safeStorageGet([SHOW_EXTENSION_KEY], (result) => {
+      setExtensionVisibility(result[SHOW_EXTENSION_KEY] !== false);
+    });
+  }
+
+  /** Builds the floating toggle button. */
+  function buildToggle() {
+    return h(
+      "button",
+      { id: "gc-toggle", type: "button" },
+      h("span", { id: "gc-toggle-grip", "aria-hidden": "true" }, "\u283f"),
+      STRINGS.ui.toggle
+    );
+  }
+
+  /** Builds one checkbox/radio + button action row. */
+  function buildActionRow(actionId, label, inputType = "checkbox", radioName = null) {
+    return h(
+      "div",
+      { class: "gc-action-row" },
+      h("input", {
+        class: "gc-action-checkbox",
+        type: inputType,
+        name: radioName,
+        "data-action-id": actionId,
+        "aria-label": STRINGS.ui.selectActionAria(label)
+      }),
+      h("button", { class: "gc-btn", id: actionId }, label)
+    );
+  }
+
+  /** Builds the next-email target details accordion section. */
+  function buildNextTargetSection() {
+    const labels = STRINGS.ui.nextTargetLabels;
+    const empty = STRINGS.ui.emptyValue;
+    const rows = [
+      ["url", "gc-next-target-url", STRINGS.ui.notCached],
+      ["sender", "gc-next-target-sender", empty],
+      ["subject", "gc-next-target-subject", empty],
+      ["date", "gc-next-target-date", empty],
+      ["threadId", "gc-next-target-thread-id", empty],
+      ["threadToken", "gc-next-target-thread-token", empty],
+      ["pageOffset", "gc-next-target-page-offset", "0"],
+      ["listHash", "gc-next-target-list-hash", empty]
+    ];
+    return h(
+      "div",
+      { id: "gc-next-target-section", class: "gc-section gc-hidden" },
+      h(
+        "details",
+        { id: "gc-next-target-accordion" },
+        h(
+          "summary",
+          { id: "gc-next-target-summary-text", class: "gc-next-target-summary" },
+          STRINGS.ui.notCached
+        ),
+        h(
+          "div",
+          { class: "gc-next-target-grid" },
+          rows.map(([key, id, initial]) => [
+            h("div", { class: "gc-next-target-label" }, labels[key]),
+            h("div", { id, class: "gc-next-target-value" }, initial)
+          ])
+        )
+      )
+    );
+  }
+
+  /** Builds the sidebar root (same ids/classes/structure styles.css expects). */
+  function buildSidebarRoot() {
+    const ui = STRINGS.ui;
+    const root = h("aside", { id: "gc-root", class: "gc-hidden" });
+    root.append(
+      h(
+        "div",
+        { id: "gc-header" },
+        h("span", { id: "gc-drag-handle", "aria-hidden": "true" }, "\u283f"),
+        h(
+          "button",
+          { type: "button", id: "gc-minimize", title: ui.minimizeTitle, "aria-label": ui.minimizeAria },
+          "\u2013"
+        ),
+        h("p", { id: "gc-title" }, ui.title)
+      ),
+      h(
+        "div",
+        { id: "gc-working", "aria-live": "polite", "aria-hidden": "true" },
+        h("span", { class: "gc-working-spinner", "aria-hidden": "true" }),
+        h("span", { class: "gc-working-text" }, ui.working)
+      ),
+      h(
+        "div",
+        { id: "gc-body" },
+        h(
+          "div",
+          { class: "gc-section gc-section-prepare" },
+          h("p", { class: "gc-section-title" }, ui.sectionPrepare),
+          buildActionRow(ACTION_BUTTON_IDS.UNSUBSCRIBE, LABELS.UNSUBSCRIBE_OPEN_EMAIL),
+          buildActionRow(ACTION_BUTTON_IDS.SELECT_LIKE_OPEN, LABELS.SELECT_LIKE_OPEN_EMAIL)
+        ),
+        h(
+          "div",
+          { class: "gc-section gc-section-archive" },
+          h("p", { class: "gc-section-title" }, ui.sectionArchive),
+          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE, "radio", "gc-archive-mode"),
+          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES, "radio", "gc-archive-mode")
+        ),
+        h(
+          "div",
+          { class: "gc-section gc-section-inbox" },
+          h("p", { class: "gc-section-title" }, ui.sectionInbox),
+          buildActionRow(ACTION_BUTTON_IDS.GO_TO_INBOX, LABELS.GO_TO_INBOX, "radio", "gc-inbox-mode"),
+          buildActionRow(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE, LABELS.GO_TO_NEXT_PAGE, "radio", "gc-inbox-mode"),
+          h(
+            "div",
+            { class: "gc-action-row", style: "display:flex;justify-content:center;" },
+            h(
+              "button",
+              { class: "gc-btn", id: "gc-show-archived", style: "width:100%;text-align:center;" },
+              ui.showArchived
+            )
+          )
+        ),
+        buildNextTargetSection(),
+        // Shortcut hint spans/titles are added by applyShortcutHints().
+        h(
+          "button",
+          { class: "gc-btn gc-btn-execute", id: "gc-execute-selected", "data-ready": "false", disabled: true },
+          ui.executeSelected
+        ),
+        h("button", { class: "gc-btn gc-btn-stop", id: "gc-stop-execution", disabled: true }, ui.stopExecution)
+      ),
+      h(
+        "div",
+        { id: "gc-confirm", role: "alert", "aria-live": "assertive" },
+        h("p", { id: "gc-confirm-message" }),
+        h(
+          "div",
+          { id: "gc-confirm-actions" },
+          h("button", { type: "button", id: "gc-confirm-proceed" }, ui.proceed),
+          h("button", { type: "button", id: "gc-confirm-stop" }, ui.stop)
+        )
+      ),
+      h(
+        "div",
+        { id: "gc-success", "aria-live": "polite" },
+        h("span", { class: "gc-success-icon", "aria-hidden": "true" }, "\u2713"),
+        h("span", { class: "gc-success-text" }, ui.completed)
+      ),
+      h("div", { id: "gc-log" }, ui.ready),
+      h("div", { id: "gc-toast", role: "status", "aria-live": "polite" }),
+      h(
+        "div",
+        { id: "gc-undo", role: "status", "aria-live": "polite" },
+        h("span", { id: "gc-undo-message" }),
+        h("button", { type: "button", id: "gc-undo-action" }, ui.undoArchive),
+        h("button", { type: "button", id: "gc-undo-dismiss", "aria-label": ui.undoDismissAria }, "\u00d7")
+      )
+    );
+    return root;
+  }
+
+  /** Mounts sidebar. */
+  function mountSidebar() {
+    if (state.extensionContextInvalidated) return;
+    // Gmail print view (Print all / print thread) — never inject UI there.
+    if (new URLSearchParams(location.search).get("view") === "pt") return;
+    if (document.getElementById("gc-root") && document.getElementById("gc-toggle")) {
+      renderNextEmailTargetSection();
+      syncExtensionVisibilityFromStorage();
+      return;
+    }
+
+    const toggle = buildToggle();
+    document.body.appendChild(toggle);
+
+    const root = buildSidebarRoot();
+    document.body.appendChild(root);
+
+    toggle.addEventListener("click", () => {
+      root.classList.toggle("gc-hidden");
+      keepElInView(root);
+    });
+
+    document.getElementById("gc-minimize")?.addEventListener("click", () => {
+      root.classList.add("gc-hidden");
+    });
+
+    Object.values(ACTION_BUTTON_IDS).forEach((buttonId) => {
+      document.getElementById(buttonId)?.addEventListener("click", () => {
+        const label = getButtonLabel(document.getElementById(buttonId));
+        void runWithElapsedToast(label, async () => {
+          await GC.runActionByButtonId(buttonId);
+        });
+      });
+    });
+
+    document.getElementById("gc-show-archived")?.addEventListener("click", () => {
+      void runWithElapsedToast(STRINGS.ui.showArchived, async () => {
+        await actionShowArchived();
+      });
+    });
+
+    document.querySelectorAll(".gc-action-checkbox").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        renderNextEmailTargetSection();
+        updateExecuteSelectedState();
+        persistActionCheckboxState();
+      });
+    });
+    document.getElementById("gc-execute-selected")?.addEventListener("click", () => {
+      GC.triggerExecuteSelected();
+    });
+    document.getElementById("gc-stop-execution")?.addEventListener("click", () => {
+      void runWithElapsedToast(STRINGS.ui.stopExecution, async () => {
+        GC.requestStopExecution();
+      });
+    });
+    document.getElementById("gc-confirm-proceed")?.addEventListener("click", () => {
+      resolveProceedConfirmation(true);
+    });
+    document.getElementById("gc-confirm-stop")?.addEventListener("click", () => {
+      resolveProceedConfirmation(false);
+    });
+    installUndoOfferListeners();
+    restoreActionCheckboxState();
+    GC.loadShortcutHints();
+    renderNextEmailTargetSection();
+    findOpenEmailSender();
+    refreshControlStates();
+
+    makeDraggable(toggle, null, null, "y");
+    makeDraggable(root, ROOT_POS_KEY, document.getElementById("gc-header"));
+
+    setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
+    syncExtensionVisibilityFromStorage();
+  }
+
+  Object.assign(GC, { askProceedConfirmation, buildActionRow, buildNextTargetSection, buildSidebarRoot,
+    buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
+    hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
+    refreshOpenEmailState, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
+    setExtensionVisibility, setProceedButtonLabel, setWorking, showToast, startProceedAutoCountdown,
+    stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, syncScanPageLimitFromStorage, toastQueue,
+    updateExecuteSelectedState });
+})();

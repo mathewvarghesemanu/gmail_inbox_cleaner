@@ -10,7 +10,6 @@ package-lock.json
 *.html
 *.css
 manifest.json
-content.js
 background.js
 popup.js
 src/

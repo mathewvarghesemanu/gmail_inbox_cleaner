@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { loadMatchingFunctions, readFixtureBody } from "./load-content.js";
+import { loadContentScripts, loadMatchingFunctions, readFixtureBody } from "./load-content.js";
 
 const NAMES = [
   "normalizeEmail",
@@ -313,8 +313,34 @@ describe("scoreRowAgainstEmailSignature", () => {
   });
 });
 
-describe("findCurrentRowIndex", () => {
+describe("findCurrentRowIndex (plain-object rows, src/matching.js)", () => {
+  it("matches by token, then id, then signature using the default plain accessors", () => {
+    const signature = fn.buildMessageSignature({
+      sender: "news@shop.example",
+      subject: "Weekly deals",
+      dateText: "Nov 4, 2025"
+    });
+    const rows = [
+      { threadToken: "aaa", threadId: "1", signature: fn.buildMessageSignature({ sender: "x@y.z" }) },
+      { threadToken: "bbb", threadId: "2", signature }
+    ];
+    expect(fn.findCurrentRowIndex(rows, { ...signature, threadToken: "bbb" })).toEqual({
+      index: 1,
+      approach: "thread-token"
+    });
+    expect(fn.findCurrentRowIndex(rows, { ...signature, threadId: "1" })).toEqual({
+      index: 0,
+      approach: "thread-id"
+    });
+    expect(fn.findCurrentRowIndex(rows, signature).index).toBe(1);
+  });
+});
+
+describe("findCurrentRowIndex (Gmail DOM rows)", () => {
   let rows;
+  // DOM rows need the content script's row readers; the pure matching.js version takes
+  // accessors, so use the DOM-bound wrapper exposed by the content-script test hook.
+  const domFn = {};
   const makeRow = ({ email, name, subject, date }) => {
     const tr = document.createElement("tr");
     tr.className = "zA";
@@ -327,13 +353,15 @@ describe("findCurrentRowIndex", () => {
   };
 
   beforeAll(() => {
+    const { exports } = loadContentScripts();
+    domFn.findCurrentRowIndex = exports.findCurrentRowIndexInDom;
     document.body.innerHTML = readFixtureBody("gmail-list.html");
     rows = [...document.querySelectorAll("tr.zA")];
   });
 
   it("matches by thread URL token first", () => {
     const sig = { ...fn.buildMessageSignature({ sender: "nobody@x.com" }), threadToken: "fmfcgzqaaaaa0000" };
-    expect(fn.findCurrentRowIndex(rows, sig)).toEqual({ index: 0, approach: "thread-token" });
+    expect(domFn.findCurrentRowIndex(rows, sig)).toEqual({ index: 0, approach: "thread-token" });
   });
   it("falls back to the legacy thread id", () => {
     const sig = {
@@ -341,7 +369,7 @@ describe("findCurrentRowIndex", () => {
       threadToken: "doesnotexist",
       threadId: "18c0000000000c03"
     };
-    expect(fn.findCurrentRowIndex(rows, sig)).toEqual({ index: 2, approach: "thread-id" });
+    expect(domFn.findCurrentRowIndex(rows, sig)).toEqual({ index: 2, approach: "thread-id" });
   });
   it("matches by strict signature when ids are absent", () => {
     const sig = fn.buildMessageSignature({
@@ -350,11 +378,11 @@ describe("findCurrentRowIndex", () => {
       subject: "Weekly deals: 50% off everything",
       dateText: "Tue, 4 Nov 2025, 10:42"
     });
-    expect(fn.findCurrentRowIndex(rows, sig)).toEqual({ index: 1, approach: "strict-signature", score: 14 });
+    expect(domFn.findCurrentRowIndex(rows, sig)).toEqual({ index: 1, approach: "strict-signature", score: 14 });
   });
   it("uses the sparse fallback for a unique sender + exact date candidate", () => {
     const sig = fn.buildMessageSignature({ sender: "news@shop.example", dateText: "Wed, 5 Nov 2025" });
-    expect(fn.findCurrentRowIndex(rows, sig)).toEqual({
+    expect(domFn.findCurrentRowIndex(rows, sig)).toEqual({
       index: 2,
       approach: "sparse-signature-fallback",
       score: 7
@@ -366,17 +394,17 @@ describe("findCurrentRowIndex", () => {
       makeRow({ email: "a@b.com", name: "A", subject: "Second", date: "Wed, 5 Nov 2025" })
     ];
     const sig = fn.buildMessageSignature({ sender: "a@b.com", dateText: "Wed, 5 Nov 2025" });
-    expect(fn.findCurrentRowIndex(twins, sig)).toEqual({ index: -1, approach: "none" });
+    expect(domFn.findCurrentRowIndex(twins, sig)).toEqual({ index: -1, approach: "none" });
   });
   it("returns none for an unknown sender or empty rows", () => {
     const sig = fn.buildMessageSignature({ sender: "stranger@x.com", subject: "Hi", dateText: "Nov 4, 2025" });
-    expect(fn.findCurrentRowIndex(rows, sig)).toEqual({ index: -1, approach: "none" });
-    expect(fn.findCurrentRowIndex([], sig)).toEqual({ index: -1, approach: "none" });
+    expect(domFn.findCurrentRowIndex(rows, sig)).toEqual({ index: -1, approach: "none" });
+    expect(domFn.findCurrentRowIndex([], sig)).toEqual({ index: -1, approach: "none" });
   });
   it("reports progress via onStatus with a page prefix", () => {
     const messages = [];
     const sig = fn.buildMessageSignature({ sender: "stranger@x.com" });
-    fn.findCurrentRowIndex(rows, sig, { onStatus: (m) => messages.push(m), pageNumber: 2 });
+    domFn.findCurrentRowIndex(rows, sig, { onStatus: (m) => messages.push(m), pageNumber: 2 });
     expect(messages.length).toBeGreaterThan(0);
     expect(messages.every((m) => m.startsWith("Page 2: "))).toBe(true);
     expect(messages[0]).toMatch(/Approach 1\/4/);

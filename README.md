@@ -8,7 +8,9 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 .
 ├── manifest.json        # MV3 manifest
 ├── background.js        # service worker (keyboard shortcut -> Execute Selected)
-├── content.js           # Gmail sidebar and DOM automation
+├── src/                 # Content scripts (load order in manifest.json)
+│   ├── matching.js      # DOM-free matching helpers (unit-tested)
+│   └── ...              # selectors, search, archive, unsubscribe, next-email, ui, main
 ├── styles.css           # in-page sidebar styles
 ├── popup.html           # toolbar popup (settings)
 ├── popup.js

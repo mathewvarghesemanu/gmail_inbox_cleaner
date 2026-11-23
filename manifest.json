@@ -72,7 +72,24 @@
   "content_scripts": [
     {
       "matches": ["https://mail.google.com/*"],
-      "js": ["content.js"],
+      "js": [
+        "src/constants.js",
+        "src/selectors.js",
+        "src/matching.js",
+        "src/util.js",
+        "src/gmail-dom.js",
+        "src/stats.js",
+        "src/search.js",
+        "src/selection.js",
+        "src/archive.js",
+        "src/undo.js",
+        "src/unsubscribe.js",
+        "src/next-email.js",
+        "src/ui.js",
+        "src/execute.js",
+        "src/shortcuts.js",
+        "src/main.js"
+      ],
       "css": ["styles.css"],
       "run_at": "document_idle"
     }

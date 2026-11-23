@@ -60,7 +60,7 @@ Popup settings:
 ## Files that define the current behavior
 
 - `manifest.json`: extension metadata, permissions, popup, content script registration
-- `content.js`: Gmail sidebar, batch actions, Gmail DOM automation, safety checks
+- `src/*.js`: content scripts (Gmail sidebar, batch actions, Gmail DOM automation, safety checks), loaded in the order listed in `manifest.json`; pure matching helpers live in `src/matching.js`
 - `styles.css`: in-page sidebar styles
 - `popup.html`, `popup.js`, `popup.css`: popup UI and local settings
 - `background.js`: service worker that forwards the Execute Selected keyboard shortcut to the Gmail tab
