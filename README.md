@@ -100,6 +100,22 @@ Shortcuts follow the same rules as the buttons: they are ignored while the sideb
 - Gmail DOM and labels can change over time, so selectors may need updates.
 - Test with a small sender batch first.
 
+## Development
+
+Requires Node.js 22.12 or newer. The extension itself has no build step; npm is only used for tooling.
+
+```bash
+npm install        # install dev tooling (vitest, jsdom, eslint, prettier)
+npm test           # run unit + smoke tests (vitest, jsdom)
+npm run lint       # eslint (flat config in eslint.config.js)
+npm run format     # prettier --write (existing sources are excluded via .prettierignore)
+```
+
+- `tests/matching.test.js` covers the pure sender/subject/date matching helpers.
+- `tests/smoke*.test.js` load the content scripts listed in `manifest.json` into hand-built Gmail DOM fixtures (`tests/fixtures/`) with `chrome.*` stubbed, and check that the sidebar mounts and the open-email sender is detected.
+- `tests/load-content.js` is the loader. It defines `globalThis.__GC_TEST__` before the scripts run, and the content script's test hook puts its internals on that object (this does nothing in the real extension). When `src/matching.js` exists, the pure helpers are loaded from it with `require` instead.
+- CI (`.github/workflows/ci.yml`) runs lint and tests on every push and pull request to `main`.
+
 ## Packaging a release
 
 Build the Chrome Web Store upload zip with:

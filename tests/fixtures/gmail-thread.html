@@ -1,0 +1,53 @@
+<!doctype html>
+<!--
+  Hand-built approximation of Gmail's open-thread (conversation view) DOM.
+  Only the attributes/classes content.js queries are reproduced:
+    div[role='main'], h2.hP[data-thread-perm-id][data-legacy-thread-id],
+    h3.iw span.gD[email][name], span.g3[title], unsubscribe link text.
+-->
+<html>
+  <head>
+    <title>Weekly deals: 50% off everything - Gmail</title>
+  </head>
+  <body>
+    <header>
+      <form role="search">
+        <input name="q" aria-label="Search mail" value="" />
+      </form>
+    </header>
+    <div role="main">
+      <div gh="mtb">
+        <div role="button" aria-label="Back to Inbox" data-tooltip="Back to Inbox"></div>
+        <div role="button" aria-label="Archive" data-tooltip="Archive"></div>
+      </div>
+      <div class="nH">
+        <h2 class="hP" data-thread-perm-id="thread-f:1800000000000000002" data-legacy-thread-id="18c0000000000b02">
+          Weekly deals: 50% off everything
+        </h2>
+        <div class="adn ads">
+          <table>
+            <tbody>
+              <tr>
+                <td>
+                  <h3 class="iw">
+                    <span class="gD" email="News@Shop.Example" name="Shop Newsletter">Shop Newsletter</span>
+                    <span class="go">&lt;news@shop.example&gt;</span>
+                    <span class="aUG">
+                      <a href="https://shop.example/unsubscribe">Unsubscribe</a>
+                    </span>
+                  </h3>
+                </td>
+                <td>
+                  <span class="g3" title="Tue, 4 Nov 2025, 10:42">10:42 AM (2 hours ago)</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="a3s">
+            <p>Big savings this week only.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -3835,4 +3835,28 @@
     if (state.extensionContextInvalidated) return;
     mountSidebar();
   });
+
+  // Test-only hook: exposes internals when a test harness pre-defines globalThis.__GC_TEST__.
+  // No-op in the extension (the global is never set there).
+  if (globalThis.__GC_TEST__) {
+    globalThis.__GC_TEST__.exports = {
+      state,
+      normalizeEmail,
+      normalizeQuery,
+      extractSenderFromQuery,
+      normalizeSubjectForMatch,
+      getNormalizedWords,
+      getWordOverlapScore,
+      parseDateSignature,
+      hashString,
+      buildMessageSignature,
+      scoreRowAgainstEmailSignature,
+      findCurrentRowIndex,
+      normalizeScanPageLimit,
+      escapeHtml,
+      findOpenEmailSender,
+      getRowFingerprint,
+      getOpenEmailSubject
+    };
+  }
 })();

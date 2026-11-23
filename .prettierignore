@@ -1,0 +1,18 @@
+# Existing extension sources are intentionally NOT mass-reformatted
+# (avoids churn and merge conflicts). Prettier applies to new tooling/tests only.
+node_modules/
+release/
+dist/
+build/
+coverage/
+package-lock.json
+*.md
+*.html
+*.css
+manifest.json
+content.js
+background.js
+popup.js
+src/
+docs/
+icons/
