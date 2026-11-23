@@ -87,6 +87,15 @@
   padding: 12px;
   display: grid;
   gap: 8px;
+  /* Scroll inside the panel instead of clipping actions on short screens. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+#gc-root > :not(#gc-body) {
+  flex-shrink: 0;
 }
 
 #gc-working {
