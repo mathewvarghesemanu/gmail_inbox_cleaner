@@ -253,22 +253,24 @@ body {
   margin: 0 0 8px;
   padding: 0;
   display: grid;
-  gap: 4px;
+  /* minmax(0, 1fr): a long command name must not widen the track past the box. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
 }
 
 .shortcut-list li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
   font-size: 12px;
+  line-height: 1.35;
 }
 
+/* Long names wrap onto a second line so they stay readable. */
 .shortcut-name {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .shortcut-list kbd {
