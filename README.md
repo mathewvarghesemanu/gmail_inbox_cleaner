@@ -12,7 +12,7 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 │   ├── matching.js      # DOM-free matching helpers (unit-tested)
 │   └── ...              # selectors, search, archive, unsubscribe, next-email, ui, main
 ├── styles.css           # in-page sidebar styles
-├── popup.html           # toolbar popup (settings)
+├── popup.html           # toolbar popup (stats; settings behind the gear button)
 ├── popup.js
 ├── popup.css
 ├── icons/
@@ -56,8 +56,9 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 - Popup `Theme` setting: `Auto` (default; the sidebar follows Gmail's theme, the popup follows the system setting), `Light` or `Dark` (forces both)
 - Proceed/stop confirmation (with auto-proceed countdown) when no unsubscribe control is found
 - Keyboard shortcuts (see below), shown on the sidebar buttons
-- Popup `Keyboard shortcuts` — lists the assigned shortcuts, with a button that opens `chrome://extensions/shortcuts`
-- Popup `Stats` — tiles with today / all-time counts of senders unsubscribed, conversations archived, pages archived and batches run, with a `Reset stats` button. Stored only in `chrome.storage.local` (per-day totals kept for 30 days); never leaves the device.
+- Toolbar popup opens on `Stats`; the gear button (top right) opens `Settings` with every option below
+- Popup `Keyboard shortcuts` (in Settings) — lists the assigned shortcuts, with a button that opens `chrome://extensions/shortcuts`
+- Popup `Stats` — tiles with today / all-time counts of senders unsubscribed, conversations archived, pages archived, conversations deleted and batches run; `Reset stats` is in Settings. Stored only in `chrome.storage.local` (per-day totals kept for 30 days); never leaves the device.
 - Sidebar panel opens next to the toggle button (same right edge, centred on the toggle) and can be dragged by its header while open
 - Draggable toggle button — icon-only, shows its label on hover; slides along Y-axis, grip icon on hover
 - Buttons and checkboxes disable automatically when no email is open (with an "Open an email" hint) or an action is running
