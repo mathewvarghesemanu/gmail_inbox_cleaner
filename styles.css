@@ -225,6 +225,29 @@
   gap: 8px;
 }
 
+.gc-scope-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 1fr;
+  align-items: center;
+  gap: 6px;
+}
+
+.gc-scope-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3c4043;
+}
+
+.gc-scope-row .gc-action-row {
+  gap: 6px;
+}
+
+.gc-scope-row .gc-btn {
+  padding: 8px 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .gc-setting-row {
   display: grid;
   grid-template-columns: 1fr auto;

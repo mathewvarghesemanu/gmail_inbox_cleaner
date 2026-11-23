@@ -66,7 +66,11 @@
       cancel: "Cancel",
       undoDismissAria: "Dismiss undo",
       notCached: "Picked when the run starts",
-      nextTargetLabel: "Next"
+      nextTargetLabel: "Next",
+      scopeArchive: "Archive",
+      scopeDelete: "Delete",
+      scopeThisPage: "This page",
+      scopeAllPages: "All pages"
     },
     toast: {
       elapsed: (label, elapsed) => `${label}: ${elapsed} elapsed`,

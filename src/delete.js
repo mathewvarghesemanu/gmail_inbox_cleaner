@@ -88,7 +88,7 @@
    * cleared so Execute Selected can never run it.
    */
   function setDeleteFeatureVisibility(enabled) {
-    document.querySelectorAll(".gc-delete-row").forEach((row) => row.classList.toggle("gc-hidden", !enabled));
+    document.querySelectorAll(".gc-delete-row, .gc-delete-group").forEach((row) => row.classList.toggle("gc-hidden", !enabled));
     const title = document.getElementById("gc-archive-section-title");
     if (title) title.textContent = enabled ? STRINGS.ui.sectionArchiveOrDelete : STRINGS.ui.sectionArchive;
     if (enabled) return;

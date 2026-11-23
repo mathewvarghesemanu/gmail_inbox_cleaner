@@ -91,3 +91,21 @@ describe("next email preview", () => {
     expect(section.textContent).not.toContain("SECRET-TOKEN");
   });
 });
+
+describe("archive / delete scope rows", () => {
+  it("use short visible labels but keep full names for toasts and tooltips", () => {
+    const GC = load();
+    const button = document.getElementById(GC.ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES);
+    expect(button.textContent).toBe("All pages");
+    expect(GC.getButtonLabel(button)).toBe(GC.LABELS.ARCHIVE_ALL_PAGES);
+    expect(button.getAttribute("aria-label")).toBe(GC.LABELS.ARCHIVE_ALL_PAGES);
+  });
+
+  it("hide the whole delete group until delete is enabled", () => {
+    const GC = load();
+    const group = document.querySelector(".gc-delete-group");
+    expect(group.classList.contains("gc-hidden")).toBe(true);
+    GC.setDeleteFeatureVisibility(true);
+    expect(group.classList.contains("gc-hidden")).toBe(false);
+  });
+});

@@ -286,6 +286,7 @@
   /** Returns a button's label text, ignoring any shortcut hint span. */
   function getButtonLabel(el, fallback = STRINGS.ui.actionFallback) {
     if (!el) return fallback;
+    if (el.dataset?.label) return el.dataset.label;
     const text = [...el.childNodes]
       .filter((node) => node.nodeType === Node.TEXT_NODE)
       .map((node) => node.textContent)
@@ -346,26 +347,52 @@
     });
   }
 
-  /** Builds one checkbox/radio + button action row. */
-  function buildActionRow(actionId, label, inputType = "checkbox", radioName = null) {
+  /**
+   * Builds one checkbox/radio + button action row. fullLabel (default: label) names
+   * the action in toasts, tooltips and screen readers when the visible label is short.
+   */
+  function buildActionRow(actionId, label, inputType = "checkbox", radioName = null, fullLabel = label) {
     const input = h("input", {
       class: "gc-action-checkbox",
       type: inputType,
       name: radioName,
       "data-action-id": actionId,
-      "aria-label": STRINGS.ui.selectActionAria(label)
+      "aria-label": STRINGS.ui.selectActionAria(fullLabel)
     });
-    const row = h("div", { class: "gc-action-row" }, input, h("button", { class: "gc-btn", id: actionId }, label));
+    const short = fullLabel !== label;
+    const button = h("button", {
+      class: "gc-btn",
+      id: actionId,
+      "data-label": short ? fullLabel : null,
+      "aria-label": short ? fullLabel : null
+    }, label);
+    const row = h("div", { class: "gc-action-row" }, input, button);
     if (inputType === "radio") installRadioDeselect(row, input);
     return row;
   }
 
-  /** Builds a delete option row: same radio group as archive, hidden until enabled. */
-  function buildDeleteRow(actionId, label) {
-    const row = buildActionRow(actionId, label, "radio", "gc-archive-mode");
-    row.classList.add("gc-delete-row", "gc-hidden");
-    row.querySelector(".gc-btn")?.classList.add("gc-btn-danger");
-    return row;
+  /**
+   * Builds a compact "Archive: [This page] [All pages]" row. Both options share the
+   * gc-archive-mode radio group. Delete rows are hidden until enabled in the popup.
+   */
+  function buildScopeRow(kind, thisPage, allPages) {
+    const ui = STRINGS.ui;
+    const isDelete = kind === "delete";
+    const options = [[thisPage, ui.scopeThisPage], [allPages, ui.scopeAllPages]].map(([[id, fullLabel], label]) => {
+      const row = buildActionRow(id, label, "radio", "gc-archive-mode", fullLabel);
+      if (isDelete) {
+        row.classList.add("gc-delete-row", "gc-hidden");
+        row.querySelector(".gc-btn")?.classList.add("gc-btn-danger");
+      }
+      return row;
+    });
+    return h(
+      "div",
+      { class: `gc-scope-row${isDelete ? " gc-delete-group gc-hidden" : ""}`, role: "group",
+        "aria-label": isDelete ? ui.scopeDelete : ui.scopeArchive },
+      h("span", { class: "gc-scope-label", "aria-hidden": "true" }, isDelete ? ui.scopeDelete : ui.scopeArchive),
+      options
+    );
   }
 
   /** Builds the one-line "Next: sender – subject" preview for Go to Next Email. */
@@ -415,11 +442,13 @@
           "div",
           { class: "gc-section gc-section-archive" },
           h("p", { class: "gc-section-title", id: "gc-archive-section-title" }, ui.sectionArchive),
-          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE, "radio", "gc-archive-mode"),
-          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES, "radio", "gc-archive-mode"),
+          buildScopeRow("archive",
+            [ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE],
+            [ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES]),
           // Opt-in (popup toggle); hidden rows are never selected (see getSelectedActionIds).
-          buildDeleteRow(ACTION_BUTTON_IDS.DELETE_THIS_PAGE, LABELS.DELETE_THIS_PAGE),
-          buildDeleteRow(ACTION_BUTTON_IDS.DELETE_ALL_PAGES, LABELS.DELETE_ALL_PAGES)
+          buildScopeRow("delete",
+            [ACTION_BUTTON_IDS.DELETE_THIS_PAGE, LABELS.DELETE_THIS_PAGE],
+            [ACTION_BUTTON_IDS.DELETE_ALL_PAGES, LABELS.DELETE_ALL_PAGES])
         ),
         h(
           "div",
@@ -553,7 +582,7 @@
     syncExtensionVisibilityFromStorage();
   }
 
-  Object.assign(GC, { askProceedConfirmation, buildActionRow, buildDeleteRow, buildNextTargetSection, buildSidebarRoot,
+  Object.assign(GC, { askProceedConfirmation, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, renderContextBar, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
