@@ -44,18 +44,34 @@
 
       <section class="stats" aria-labelledby="stats-title">
         <h2 id="stats-title">Stats</h2>
-        <table class="stats-table">
-          <thead>
-            <tr><th scope="col"></th><th scope="col">Today</th><th scope="col">All time</th></tr>
-          </thead>
-          <tbody>
-            <tr><th scope="row">Senders unsubscribed</th><td data-stat="today-unsubscribed">0</td><td data-stat="total-unsubscribed">0</td></tr>
-            <tr><th scope="row">Conversations archived</th><td data-stat="today-conversationsArchived">0</td><td data-stat="total-conversationsArchived">0</td></tr>
-            <tr><th scope="row">Pages archived</th><td data-stat="today-pagesArchived">0</td><td data-stat="total-pagesArchived">0</td></tr>
-            <tr><th scope="row">Conversations deleted</th><td data-stat="today-deleted">0</td><td data-stat="total-deleted">0</td></tr>
-            <tr><th scope="row">Batches run</th><td data-stat="today-batches">0</td><td data-stat="total-batches">0</td></tr>
-          </tbody>
-        </table>
+        <p class="stats-caption">Today, with all-time totals</p>
+        <dl class="stats-grid">
+          <div class="stat-tile">
+            <dt>Senders unsubscribed</dt>
+            <dd class="stat-today" data-stat="today-unsubscribed">0</dd>
+            <dd class="stat-total">All time <span data-stat="total-unsubscribed">0</span></dd>
+          </div>
+          <div class="stat-tile">
+            <dt>Conversations archived</dt>
+            <dd class="stat-today" data-stat="today-conversationsArchived">0</dd>
+            <dd class="stat-total">All time <span data-stat="total-conversationsArchived">0</span></dd>
+          </div>
+          <div class="stat-tile">
+            <dt>Pages archived</dt>
+            <dd class="stat-today" data-stat="today-pagesArchived">0</dd>
+            <dd class="stat-total">All time <span data-stat="total-pagesArchived">0</span></dd>
+          </div>
+          <div class="stat-tile">
+            <dt>Conversations deleted</dt>
+            <dd class="stat-today" data-stat="today-deleted">0</dd>
+            <dd class="stat-total">All time <span data-stat="total-deleted">0</span></dd>
+          </div>
+          <div class="stat-tile">
+            <dt>Batches run</dt>
+            <dd class="stat-today" data-stat="today-batches">0</dd>
+            <dd class="stat-total">All time <span data-stat="total-batches">0</span></dd>
+          </div>
+        </dl>
         <div class="stats-footer">
           <span class="stats-note">Stored on this device only.</span>
           <button type="button" id="reset-stats" class="stats-reset">Reset stats</button>

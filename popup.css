@@ -149,32 +149,59 @@ body {
   letter-spacing: 0.04em;
 }
 
-.stats-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.stats-table th,
-.stats-table td {
-  padding: 3px 0;
-  text-align: right;
-  font-weight: 400;
-}
-
-.stats-table thead th {
+.stats-caption {
+  margin: 0 0 8px;
   font-size: 11px;
   color: #5f6368;
 }
 
-.stats-table tbody th {
-  text-align: left;
+.stats-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
-.stats-table td {
-  width: 64px;
+.stat-tile {
+  padding: 8px;
+  border: 1px solid #e8eaed;
+  border-radius: 8px;
+  background: #f8fbff;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Odd tile count: the last tile spans the full row. */
+.stat-tile:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.stat-tile dt {
+  font-size: 11px;
+  color: #5f6368;
+}
+
+.stat-tile dd {
+  margin: 0;
   font-variant-numeric: tabular-nums;
+}
+
+.stat-today {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #202124;
+}
+
+.stat-total {
+  font-size: 11px;
+  color: #5f6368;
+}
+
+.stat-total span {
   font-weight: 600;
+  color: #3c4043;
 }
 
 .stats-footer {
