@@ -17,7 +17,7 @@ Required so the extension can run only inside Gmail web and interact with Gmail'
 Answer: **No**
 
 Justification:
-This extension does not use remotely hosted executable code. All JavaScript is packaged with the extension (`content.js`, `popup.js`) and loaded locally via Manifest V3 (`content_scripts` and local `popup.html` script reference). It does not load external JS/Wasm files, does not use remote module imports, and does not execute code from strings (for example via `eval` or `new Function`).
+This extension does not use remotely hosted executable code. All JavaScript is packaged with the extension (`src/*.js` content scripts, `popup.js`) and loaded locally via Manifest V3 (`content_scripts` and local `popup.html` script reference). It does not load external JS/Wasm files, does not use remote module imports, and does not execute code from strings (for example via `eval` or `new Function`).
 
 ## Data handling summary
 

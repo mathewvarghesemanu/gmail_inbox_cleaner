@@ -50,6 +50,6 @@ Run from project root:
 unzip -l release/Gmail_unsubscriber_on_device_v<version>.zip   # sanity-check contents
 ```
 
-The script reads the version from `manifest.json` and zips only the runtime files (`manifest.json`, `background.js`, `content.js`, `styles.css`, `popup.html`, `popup.js`, `popup.css`, `icons/*.png`), excluding `.DS_Store`. Add any new runtime file to the `RUNTIME_FILES` list at the top of the script.
+The script reads the version from `manifest.json` and zips only the runtime files (`manifest.json`, `background.js`, `src/*.js`, `styles.css`, `popup.html`, `popup.js`, `popup.css`, `icons/*.png`), excluding `.DS_Store`. Add any new runtime file to the `RUNTIME_FILES` (or `RUNTIME_GLOBS`) list at the top of the script.
 
 The `release/` folder is gitignored. Attach the built zip to the matching GitHub Release instead of committing it.

@@ -17,7 +17,7 @@ function storageGet(keys) {
   });
 }
 
-/** Clamps a raw value to a valid scan page limit (mirrors content.js). */
+/** Clamps a raw value to a valid scan page limit (mirrors src/matching.js). */
 function normalizeScanPageLimit(raw) {
   const parsed = Number.parseInt(String(raw ?? ""), 10);
   if (!Number.isFinite(parsed)) return DEFAULT_SCAN_PAGE_LIMIT;
@@ -28,7 +28,7 @@ function normalizeScanPageLimit(raw) {
 const STATS_KEY = "gcStats";
 const STAT_FIELDS = ["unsubscribed", "conversationsArchived", "pagesArchived", "batches"];
 
-/** Returns the local-date key (YYYY-MM-DD), matching content.js. */
+/** Returns the local-date key (YYYY-MM-DD), matching src/stats.js. */
 function getStatsDayKey(date = new Date()) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
