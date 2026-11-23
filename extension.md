@@ -31,6 +31,7 @@ Sidebar actions:
 Popup settings:
 
 - Show or hide the in-page extension UI
+- Enable `Delete Open Email` (off by default); when on, optionally skip the delete confirmation
 
 ## Current workflow
 

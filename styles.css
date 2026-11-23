@@ -227,6 +227,22 @@
   opacity: 0.65;
 }
 
+.gc-btn-danger {
+  text-align: center;
+  border-color: #d93025;
+  color: #d93025;
+}
+
+.gc-btn-danger:hover:not(:disabled) {
+  background: #fdecea;
+}
+
+#gc-confirm.gc-confirm-danger #gc-confirm-proceed {
+  background: #d93025;
+  border-color: #d93025;
+  color: #fff;
+}
+
 .gc-btn-stop {
   margin-top: 6px;
   text-align: center;

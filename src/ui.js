@@ -81,7 +81,9 @@
     stopProceedAutoCountdown();
     const box = document.getElementById("gc-confirm");
     if (!box) return;
-    box.classList.remove("gc-confirm-visible");
+    box.classList.remove("gc-confirm-visible", "gc-confirm-danger");
+    const stopBtn = document.getElementById("gc-confirm-stop");
+    if (stopBtn) stopBtn.textContent = STRINGS.ui.stop;
   }
 
   /** Updates proceed button label. */
@@ -137,12 +139,17 @@
     }
 
     messageEl.textContent = message;
+    box.classList.toggle("gc-confirm-danger", !!options.proceedLabel);
     box.classList.add("gc-confirm-visible");
     if (options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
       startProceedAutoCountdown(AUTO_PROCEED_SECONDS);
     } else {
       stopProceedAutoCountdown();
     }
+    // Custom labels (e.g. Delete / Cancel); reset to Proceed / Stop on hide.
+    if (options.proceedLabel) setProceedButtonLabel(options.proceedLabel);
+    const stopBtn = document.getElementById("gc-confirm-stop");
+    if (stopBtn) stopBtn.textContent = options.stopLabel || STRINGS.ui.stop;
 
     return new Promise((resolve) => {
       proceedConfirmationResolver = resolve;
@@ -376,7 +383,17 @@
           { class: "gc-section gc-section-archive" },
           h("p", { class: "gc-section-title" }, ui.sectionArchive),
           buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE, "radio", "gc-archive-mode"),
-          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES, "radio", "gc-archive-mode")
+          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES, "radio", "gc-archive-mode"),
+          // Opt-in (popup toggle); standalone button, never part of Execute Selected.
+          h(
+            "div",
+            { class: "gc-action-row gc-hidden", id: "gc-delete-row", style: "display:flex;" },
+            h(
+              "button",
+              { class: "gc-btn gc-btn-danger", id: ACTION_BUTTON_IDS.DELETE_OPEN_EMAIL, style: "width:100%;" },
+              LABELS.DELETE_OPEN_EMAIL
+            )
+          )
         ),
         h(
           "div",
@@ -496,6 +513,7 @@
       resolveProceedConfirmation(false);
     });
     installUndoOfferListeners();
+    GC.syncDeleteFeatureFromStorage();
     restoreActionCheckboxState();
     GC.loadShortcutHints();
     renderNextEmailTargetSection();

@@ -11,7 +11,7 @@
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
 
-  const STAT_FIELDS = ["unsubscribed", "conversationsArchived", "pagesArchived", "batches"];
+  const STAT_FIELDS = ["unsubscribed", "conversationsArchived", "pagesArchived", "deleted", "batches"];
   let statsWriteChain = Promise.resolve();
 
   /**
