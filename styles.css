@@ -917,9 +917,9 @@
   color: #f28b82;
 }
 
-/* First-run onboarding (src/onboarding.js). */
+/* First-run onboarding (src/onboarding.js): notes on the page beside the panel,
+   each with a curved arrow. data-tone is the page background behind the note. */
 
-/* Toggle pulses until the panel is opened for the first time. */
 @keyframes gc-toggle-pulse {
   0% {
     box-shadow: 0 6px 14px rgba(11, 87, 208, 0.32), 0 0 0 0 rgba(11, 87, 208, 0.45);
@@ -936,27 +936,48 @@
   animation: gc-toggle-pulse 1.8s ease-out infinite;
 }
 
-/* Highlighted section/button for the current step. */
-@keyframes gc-coach-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.55);
+#gc-coach-layer {
+  position: fixed;
+  inset: 0;
+  /* Under the panel and toggle so arrows tuck in at their edges. */
+  z-index: 2147483645;
+  pointer-events: none;
+  font-family: "Google Sans", "Segoe UI", Arial, sans-serif;
+  /* Light page: dark ink, blue arrows. */
+  --gc-ink: #1f1f1f;
+  --gc-ink-soft: #3c4043;
+  --gc-arrow: #0b57d0;
+  --gc-halo: rgba(255, 255, 255, 0.92);
+}
+
+#gc-coach-layer [data-tone="dark"] {
+  --gc-ink: #ffffff;
+  --gc-ink-soft: #e8eaed;
+  --gc-arrow: #8ab4f8;
+  --gc-halo: rgba(0, 0, 0, 0.85);
+}
+
+.gc-coach-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+@keyframes gc-coach-draw {
+  from {
+    stroke-dashoffset: 1;
   }
-  50% {
-    box-shadow: 0 0 0 4px rgba(11, 87, 208, 0.2);
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
-#gc-root .gc-coach-target {
-  position: relative;
-  border-radius: 10px;
-  animation: gc-coach-glow 1.6s ease-in-out infinite;
-}
-
-@keyframes gc-coach-in {
+@keyframes gc-coach-fade-up {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.98);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -964,112 +985,112 @@
   }
 }
 
-#gc-coach {
+@keyframes gc-coach-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.gc-coach-arrow,
+.gc-coach-arrow-head {
+  fill: none;
+  stroke: var(--gc-arrow);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Halo keeps arrows visible on busy or photo backgrounds. */
+  filter: drop-shadow(0 0 1.5px var(--gc-halo)) drop-shadow(0 0 1.5px var(--gc-halo));
+  transition: stroke 0.2s;
+}
+
+.gc-coach-arrow {
+  stroke-dasharray: 1;
+  animation: gc-coach-draw 520ms cubic-bezier(0.45, 0, 0.2, 1) var(--gc-coach-delay, 0ms) both;
+}
+
+.gc-coach-arrow-head {
+  animation: gc-coach-fade 160ms ease-out var(--gc-coach-delay, 0ms) both;
+}
+
+.gc-coach-note,
+.gc-coach-footer {
+  position: absolute;
   margin: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #0b57d0;
-  color: #ffffff;
-  box-shadow: 0 6px 16px rgba(11, 87, 208, 0.3);
-  animation: gc-coach-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  color: var(--gc-ink);
+  animation: gc-coach-fade-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--gc-coach-delay, 0ms) both;
+  transition: color 0.2s;
 }
 
-#gc-coach p {
+.gc-coach-note p {
   margin: 0;
+  text-shadow: 0 0 2px var(--gc-halo), 0 0 6px var(--gc-halo), 0 0 10px var(--gc-halo);
 }
 
-#gc-coach .gc-coach-count {
-  font-size: 11px;
-  opacity: 0.8;
+#gc-coach-layer[data-side="left"] .gc-coach-note {
+  text-align: right;
 }
 
-#gc-coach .gc-coach-title {
-  margin-top: 2px;
+.gc-coach-note-title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.gc-coach-note-text {
+  margin-top: 2px !important;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--gc-ink-soft);
+}
+
+.gc-coach-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+#gc-coach-layer[data-side="left"] .gc-coach-footer {
+  flex-direction: row-reverse;
+}
+
+.gc-coach-done {
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
-}
-
-#gc-coach .gc-coach-text {
-  margin-top: 4px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-#gc-coach .gc-coach-actions {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-#gc-coach button {
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
+  padding: 7px 18px;
+  border: 0;
   border-radius: 999px;
+  background: var(--gc-arrow);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   cursor: pointer;
 }
 
-#gc-coach .gc-coach-skip {
-  border: 1px solid transparent;
-  background: transparent;
-  color: #ffffff;
-  opacity: 0.85;
+[data-tone="dark"] .gc-coach-done {
+  color: #062e6f;
 }
 
-#gc-coach .gc-coach-skip:hover {
-  opacity: 1;
-  text-decoration: underline;
+.gc-coach-done:hover {
+  filter: brightness(1.08);
 }
 
-#gc-coach .gc-coach-next {
-  border: 1px solid #ffffff;
-  background: #ffffff;
-  color: #0b57d0;
-}
-
-#gc-coach .gc-coach-next:hover {
-  background: #e8f0fe;
-}
-
-#gc-coach button:focus-visible {
-  outline: 2px solid #ffffff;
+.gc-coach-done:focus-visible {
+  outline: 2px solid var(--gc-ink);
   outline-offset: 2px;
 }
 
-#gc-root[data-gc-theme="dark"] #gc-coach {
-  background: #8ab4f8;
-  color: #062e6f;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+.gc-coach-esc {
+  font-size: 12px;
+  color: var(--gc-ink-soft);
+  text-shadow: 0 0 2px var(--gc-halo), 0 0 6px var(--gc-halo);
 }
 
-#gc-root[data-gc-theme="dark"] #gc-coach .gc-coach-skip {
-  color: #062e6f;
-}
-
-#gc-root[data-gc-theme="dark"] #gc-coach .gc-coach-next {
-  border-color: #062e6f;
-  background: #062e6f;
-  color: #e8eaed;
-}
-
-#gc-root[data-gc-theme="dark"] #gc-coach button:focus-visible {
-  outline-color: #062e6f;
-}
-
-#gc-root[data-gc-theme="dark"] .gc-coach-target {
-  animation-name: gc-coach-glow-dark;
-}
-
-@keyframes gc-coach-glow-dark {
-  0%,
-  100% {
-    box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.7);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(138, 180, 248, 0.25);
-  }
+.gc-coach-off {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1078,16 +1099,14 @@
     box-shadow: 0 6px 14px rgba(11, 87, 208, 0.32), 0 0 0 3px rgba(11, 87, 208, 0.35);
   }
 
-  #gc-root .gc-coach-target {
+  .gc-coach-arrow,
+  .gc-coach-arrow-head,
+  .gc-coach-note,
+  .gc-coach-footer {
     animation: none;
-    box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.55);
   }
 
-  #gc-root[data-gc-theme="dark"] .gc-coach-target {
-    box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.7);
-  }
-
-  #gc-coach {
-    animation: none;
+  .gc-coach-arrow {
+    stroke-dasharray: none;
   }
 }

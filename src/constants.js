@@ -105,23 +105,14 @@
     },
     onboarding: {
       ariaLabel: "Quick tour",
-      count: (step, total) => `${step} of ${total}`,
-      next: "Next",
       done: "Got it",
-      skip: "Skip",
-      steps: [
-        {
-          title: "Start with an open email",
-          text: "Tick Unsubscribe and Select similar. They act on the sender of the email you have open."
-        },
-        {
-          title: "Choose where to archive",
-          text: "Archive matching emails on this page only, or across every page of results."
-        },
-        {
-          title: "Run it all at once",
-          text: "Execute Selected runs every ticked step in order. You can stop it at any time."
-        }
+      escHint: "or press Esc",
+      toggle: { title: "Start here", text: "Click to open the inbox cleaner." },
+      notes: [
+        { title: "Open an email first", text: "Its sender shows here. Every action targets this sender." },
+        { title: "Prepare", text: "Unsubscribe, then select every email from the same sender." },
+        { title: "Archive", text: "Clear the matches on this page, or across all pages." },
+        { title: "Run it all", text: "Execute Selected runs the ticked steps in order. Stop any time." }
       ]
     },
     prompt: {
