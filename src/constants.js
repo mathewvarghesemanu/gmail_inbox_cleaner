@@ -36,7 +36,8 @@
       ARCHIVE_ALL_PAGES: "Archive Listed Emails in All Pages",
       GO_TO_INBOX: "Go to Inbox",
       GO_TO_NEXT_PAGE: "Go to Next Email",
-      DELETE_OPEN_EMAIL: "Delete Open Email"
+      DELETE_THIS_PAGE: "Delete Listed Emails in This Page",
+      DELETE_ALL_PAGES: "Delete Listed Emails in All Pages"
     },
     ui: {
       toggle: "Gmail unsubscriber",
@@ -46,6 +47,7 @@
       working: "Working...",
       sectionPrepare: "Prepare",
       sectionArchive: "Archive",
+      sectionArchiveOrDelete: "Archive or Delete",
       sectionInbox: "Inbox",
       selectActionAria: (label) => `Select ${label}`,
       showArchived: "Show Archived",
@@ -94,14 +96,17 @@
       nextTargetUnavailable: "Couldn't find the next email; skipping Go to Next Email",
       executionFailed: "Execute Selected failed",
       deleted: "Moved to Trash",
+      deleteComplete: "Delete complete",
       deleteCancelled: "Delete cancelled",
       deleteDisabled: "Delete is turned off in the extension popup"
     },
     prompt: {
       noUnsubscribe:
         "No unsubscribe button/link found in this email. Proceed with remaining selected actions?",
-      deleteOpenEmail: (sender, subject) =>
-        `Delete this email from ${sender}${subject ? ` ("${subject}")` : ""}? It moves to Trash.`
+      deleteThisPage: (description, sender) =>
+        `Delete ${description} on this page from ${sender}? They move to Trash.`,
+      deleteAllPages: (description, sender) =>
+        `Delete ${description} from ${sender}, across all pages? They move to Trash.`
     }
   };
   const LABELS = STRINGS.actions;
@@ -112,11 +117,12 @@
     ARCHIVE_ALL_PAGES: "gc-archive-rec",
     GO_TO_INBOX: "gc-inbox",
     GO_TO_NEXT_PAGE: "gc-next-page",
-    /** Standalone button (no checkbox): never part of Execute Selected. */
-    DELETE_OPEN_EMAIL: "gc-delete-open"
+    /** Opt-in (popup toggle); same radio group as the archive options. */
+    DELETE_THIS_PAGE: "gc-delete",
+    DELETE_ALL_PAGES: "gc-delete-rec"
   };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
-  /** Popup settings: Delete Open Email is opt-in; confirmation can be skipped only when it is on. */
+  /** Popup settings: delete options are opt-in; confirmation can be skipped only when it is on. */
   const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
   const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";

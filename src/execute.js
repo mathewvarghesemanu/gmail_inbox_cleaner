@@ -3,7 +3,7 @@
   const GC = window.__gc;
   if (!GC || GC.skipLoad) return;
 
-  const { ACTION_BUTTON_IDS, STRINGS, actionArchiveAll, actionArchiveRecursive, actionDeleteOpenEmail, actionGoInbox,
+  const { ACTION_BUTTON_IDS, STRINGS, actionArchiveAll, actionArchiveRecursive, actionDeleteAllPages, actionDeleteThisPage, actionGoInbox,
     actionGoNextPage, actionSelectLikeOpen, actionUnsubscribe, announceEmailTargetStatus,
     cacheNextEmailTargetForSender, clearCachedNextEmailTarget, dismissUnsubscribeDialogs,
     findOpenEmailSender, getMailboxToolbar, getSelectedActionIds, getThreadRows, recordStats,
@@ -19,7 +19,8 @@
       [ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES]: actionArchiveRecursive,
       [ACTION_BUTTON_IDS.GO_TO_INBOX]: actionGoInbox,
       [ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE]: actionGoNextPage,
-      [ACTION_BUTTON_IDS.DELETE_OPEN_EMAIL]: actionDeleteOpenEmail
+      [ACTION_BUTTON_IDS.DELETE_THIS_PAGE]: actionDeleteThisPage,
+      [ACTION_BUTTON_IDS.DELETE_ALL_PAGES]: actionDeleteAllPages
     };
     return handlers[buttonId] || null;
   }
@@ -58,7 +59,9 @@
     const hasUnsubscribe = selectedActionIds.includes(ACTION_BUTTON_IDS.UNSUBSCRIBE);
     const hasArchive =
       selectedActionIds.includes(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE) ||
-      selectedActionIds.includes(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES);
+      selectedActionIds.includes(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES) ||
+      selectedActionIds.includes(ACTION_BUTTON_IDS.DELETE_THIS_PAGE) ||
+      selectedActionIds.includes(ACTION_BUTTON_IDS.DELETE_ALL_PAGES);
     return hasSelectLikeOpen || (hasUnsubscribe && hasArchive);
   }
 

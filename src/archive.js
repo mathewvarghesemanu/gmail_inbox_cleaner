@@ -8,39 +8,72 @@
     recordStats, robustClick, runSearchQuery, selectAllMatchingSearch, setLog, sleep, state,
     triggerKeySequence, validateLockedArchiveContext, waitFor, waitForSelectionToSettle } = GC;
 
-  /** Archives selected. */
-  async function archiveSelected() {
+  /** Finds Gmail's toolbar Archive button. */
+  function findArchiveControl() {
     const toolbar = getMailboxToolbar() || document;
-    const archiveControl = [...toolbar.querySelectorAll(SELECTORS.toolbarControls)].find(
-      (el) => {
-        if (!isVisible(el)) return false;
-        if ((el.getAttribute("aria-disabled") || "").toLowerCase() === "true") return false;
-        const label = (el.getAttribute("aria-label") || "").toLowerCase();
-        const tooltip = (el.getAttribute("data-tooltip") || "").toLowerCase();
-        const text = (el.textContent || "").trim().toLowerCase();
-        const act = (el.getAttribute("act") || "").trim();
-        return (
-          label.includes(GMAIL_TEXT.archive) ||
-          tooltip.includes(GMAIL_TEXT.archive) ||
-          text === GMAIL_TEXT.archive ||
-          act === SELECTORS.archiveAct
-        );
-      }
-    );
+    return [...toolbar.querySelectorAll(SELECTORS.toolbarControls)].find((el) => {
+      if (!isVisible(el)) return false;
+      if ((el.getAttribute("aria-disabled") || "").toLowerCase() === "true") return false;
+      const label = (el.getAttribute("aria-label") || "").toLowerCase();
+      const tooltip = (el.getAttribute("data-tooltip") || "").toLowerCase();
+      const text = (el.textContent || "").trim().toLowerCase();
+      const act = (el.getAttribute("act") || "").trim();
+      return (
+        label.includes(GMAIL_TEXT.archive) ||
+        tooltip.includes(GMAIL_TEXT.archive) ||
+        text === GMAIL_TEXT.archive ||
+        act === SELECTORS.archiveAct
+      );
+    }) || null;
+  }
 
-    // When rows were visibly selected, finish as soon as Gmail clears them (archived);
+  /**
+   * Per-kind wording, stats and Gmail control for the shared page / all-pages loops.
+   * Delete never falls back to a keyboard shortcut: no button found means nothing is deleted.
+   */
+  const BULK_KINDS = {
+    archive: {
+      verbing: "archiving",
+      findControl: findArchiveControl,
+      keyFallback: ["e"],
+      stats: (count) => ({ pagesArchived: 1, conversationsArchived: count }),
+      doneToast: STRINGS.toast.archived,
+      completeToast: STRINGS.toast.archiveComplete
+    },
+    delete: {
+      verbing: "deleting",
+      findControl: () => GC.findDeleteControl(),
+      keyFallback: null,
+      stats: (count) => ({ deleted: count }),
+      doneToast: STRINGS.toast.deleted,
+      completeToast: STRINGS.toast.deleteComplete
+    }
+  };
+
+  /** Clicks Archive (or Delete) for the selected rows and waits for Gmail to clear them. */
+  async function applyToSelected(kind = "archive") {
+    const config = BULK_KINDS[kind];
+    const control = config.findControl();
+    // When rows were visibly selected, finish as soon as Gmail clears them;
     // otherwise there is no signal to watch, so keep the full wait.
     const hadSelection = hasAnySelectedConversationRow();
-    if (archiveControl) {
-      robustClick(archiveControl);
+    if (control) {
+      robustClick(control);
+    } else if (config.keyFallback) {
+      triggerKeySequence(config.keyFallback);
     } else {
-      triggerKeySequence(["e"]);
+      throw new Error("Could not find Gmail's Delete button. Nothing was deleted.");
     }
     if (hadSelection) {
       await waitFor(() => !hasAnySelectedConversationRow(), { timeout: 700, interval: 70 });
     } else {
       await sleep(700);
     }
+  }
+
+  /** Archives selected. */
+  async function archiveSelected() {
+    await applyToSelected("archive");
   }
 
   /** Archives current page. */
@@ -72,44 +105,62 @@
     throw lastError || new Error(`Failed to archive page ${pageNumber}.`);
   }
 
-  /** Handles action archive all. */
-  async function actionArchiveAll(options = {}) {
+  /** Archives (or deletes) the listed emails on the current page. */
+  async function bulkThisPage(kind, options = {}) {
+    const config = BULK_KINDS[kind];
     const manageWorking = !options.skipWorking;
     if (manageWorking) GC.setWorking(true);
     try {
+      const deleteSettings = kind === "delete" ? await GC.requireDeleteEnabled() : null;
       await ensureQueryReady();
       validateLockedArchiveContext();
       setLog("Selecting conversations on current page...");
       await selectAllMatchingSearch({ includeAllInSearch: false });
       await waitForSelectionToSettle();
-      setLog(`${state.selectedConversationsText} Archiving current page...`);
       const selectedCount = countSelectedConversationRows();
-      await archiveSelected();
-      recordStats({ pagesArchived: 1, conversationsArchived: selectedCount });
-      setLog("Archive action sent for current page.");
-      GC.flashSuccess(STRINGS.toast.archived);
-      GC.showToast(STRINGS.toast.archiveComplete);
-      GC.offerGmailUndo();
+      if (kind === "delete") {
+        const description = selectedCount
+          ? `${selectedCount} conversation${selectedCount === 1 ? "" : "s"}`
+          : "the listed conversations";
+        const message = STRINGS.prompt.deleteThisPage(description, state.lockedSender);
+        if (!(await GC.confirmDelete(message, deleteSettings))) return;
+      }
+      setLog(`${state.selectedConversationsText} ${config.verbing[0].toUpperCase()}${config.verbing.slice(1)} current page...`);
+      await applyToSelected(kind);
+      recordStats(config.stats(selectedCount));
+      setLog(`${kind === "delete" ? "Delete" : "Archive"} action sent for current page.`);
+      GC.flashSuccess(config.doneToast);
+      GC.showToast(config.completeToast);
+      GC.offerGmailUndo(kind);
     } catch (error) {
-      setLog(error.message || "Archive failed.");
+      setLog(error.message || `${kind === "delete" ? "Delete" : "Archive"} failed.`);
     } finally {
       if (manageWorking) GC.setWorking(false);
     }
   }
 
-  /** Handles action archive recursive. */
-  async function actionArchiveRecursive(options = {}) {
+  /** Archives (or deletes) the listed emails across all pages. */
+  async function bulkAllPages(kind, options = {}) {
+    const config = BULK_KINDS[kind];
     const manageWorking = !options.skipWorking;
     if (manageWorking) GC.setWorking(true);
     const undoTracker = { sender: "", cycles: 0 };
     try {
+      const deleteSettings = kind === "delete" ? await GC.requireDeleteEnabled() : null;
       await ensureQueryReady();
       await GC.waitForListToLoadForBatchStep(20000);
       if (!getThreadRows().length) {
-        throw new Error("No emails found in the current filtered list to archive.");
+        throw new Error(`No emails found in the current filtered list to ${kind}.`);
       }
-      if (!(await GC.confirmArchiveAllPagesWithCount(state.lockedSender))) return;
-      undoTracker.sender = state.lockedSender;
+      if (kind === "delete") {
+        validateLockedArchiveContext();
+        const message = STRINGS.prompt.deleteAllPages(GC.describeArchiveCount(), state.lockedSender);
+        if (!(await GC.confirmDelete(message, deleteSettings))) return;
+      } else {
+        if (!(await GC.confirmArchiveAllPagesWithCount(state.lockedSender))) return;
+        // Undo all moves archived mail back to the Inbox; it does not apply to Trash.
+        undoTracker.sender = state.lockedSender;
+      }
 
       let cycles = 0;
       let unchangedCycles = 0;
@@ -130,10 +181,10 @@
         setLog(`Cycle ${cycles + 1}: selecting listed emails...`);
         await selectAllMatchingSearch({ includeAllInSearch: false });
         await waitForSelectionToSettle();
-        setLog(`Cycle ${cycles + 1}: archiving...`);
+        setLog(`Cycle ${cycles + 1}: ${config.verbing}...`);
         const selectedCount = countSelectedConversationRows();
-        await archiveSelected();
-        recordStats({ pagesArchived: 1, conversationsArchived: selectedCount });
+        await applyToSelected(kind);
+        recordStats(config.stats(selectedCount));
         undoTracker.cycles += 1;
         // Wait (up to the previous fixed 2s) for Gmail to repopulate the list with
         // different rows; then a short settle before the next cycle reads it.
@@ -157,8 +208,8 @@
             await sleep(800);
           } else {
             setLog(`Stopped after ${cycles} cycles: list did not change after retries.`);
-            GC.flashSuccess(STRINGS.toast.archived);
-            GC.showToast(STRINGS.toast.archiveComplete);
+            GC.flashSuccess(config.doneToast);
+            GC.showToast(config.completeToast);
             return;
           }
         } else {
@@ -167,18 +218,38 @@
       }
 
       if (cycles === 0) {
-        setLog("No emails found to archive.");
+        setLog(`No emails found to ${kind}.`);
         return;
       }
-      setLog(`Archive loop completed after ${cycles} cycle(s).`);
-      GC.flashSuccess(STRINGS.toast.archived);
-      GC.showToast(STRINGS.toast.archiveComplete);
+      setLog(`${kind === "delete" ? "Delete" : "Archive"} loop completed after ${cycles} cycle(s).`);
+      GC.flashSuccess(config.doneToast);
+      GC.showToast(config.completeToast);
     } catch (error) {
-      setLog(error.message || "Recursive archive failed.");
+      setLog(error.message || `${kind === "delete" ? "Delete" : "Archive"} across all pages failed.`);
     } finally {
       if (undoTracker.sender && undoTracker.cycles > 0) GC.offerUndoAllArchive(undoTracker.sender);
       if (manageWorking) GC.setWorking(false);
     }
+  }
+
+  /** Handles action archive all. */
+  async function actionArchiveAll(options = {}) {
+    await bulkThisPage("archive", options);
+  }
+
+  /** Handles action archive recursive. */
+  async function actionArchiveRecursive(options = {}) {
+    await bulkAllPages("archive", options);
+  }
+
+  /** Deletes (moves to Trash) the listed emails on this page. Opt-in. */
+  async function actionDeleteThisPage(options = {}) {
+    await bulkThisPage("delete", options);
+  }
+
+  /** Deletes (moves to Trash) the listed emails across all pages. Opt-in. */
+  async function actionDeleteAllPages(options = {}) {
+    await bulkAllPages("delete", options);
   }
 
   /** Shows archived emails by running the archived search query. */
@@ -195,6 +266,7 @@
     }
   }
 
-  Object.assign(GC, { actionArchiveAll, actionArchiveRecursive, actionShowArchived, archiveCurrentPage,
-    archiveCurrentPageWithRetry, archiveSelected });
+  Object.assign(GC, { actionArchiveAll, actionArchiveRecursive, actionDeleteAllPages, actionDeleteThisPage,
+    actionShowArchived, applyToSelected, archiveCurrentPage, archiveCurrentPageWithRetry, archiveSelected,
+    bulkAllPages, bulkThisPage, findArchiveControl });
 })();

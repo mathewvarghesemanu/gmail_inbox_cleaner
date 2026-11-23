@@ -201,6 +201,9 @@
   /** Returns selected action ids. */
   function getSelectedActionIds() {
     return [...document.querySelectorAll(".gc-action-checkbox:checked")]
+      // A delete option hidden by the popup toggle never runs (the sidebar itself
+      // may be hidden while Execute Selected runs from a shortcut, so check the row only).
+      .filter((checkbox) => !checkbox.closest(".gc-delete-row.gc-hidden"))
       .map((checkbox) => checkbox.getAttribute("data-action-id") || "")
       .filter(Boolean);
   }
@@ -309,6 +312,14 @@
     );
   }
 
+  /** Builds a delete option row: same radio group as archive, hidden until enabled. */
+  function buildDeleteRow(actionId, label) {
+    const row = buildActionRow(actionId, label, "radio", "gc-archive-mode");
+    row.classList.add("gc-delete-row", "gc-hidden");
+    row.querySelector(".gc-btn")?.classList.add("gc-btn-danger");
+    return row;
+  }
+
   /** Builds the next-email target details accordion section. */
   function buildNextTargetSection() {
     const labels = STRINGS.ui.nextTargetLabels;
@@ -381,19 +392,12 @@
         h(
           "div",
           { class: "gc-section gc-section-archive" },
-          h("p", { class: "gc-section-title" }, ui.sectionArchive),
+          h("p", { class: "gc-section-title", id: "gc-archive-section-title" }, ui.sectionArchive),
           buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE, "radio", "gc-archive-mode"),
           buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES, "radio", "gc-archive-mode"),
-          // Opt-in (popup toggle); standalone button, never part of Execute Selected.
-          h(
-            "div",
-            { class: "gc-action-row gc-hidden", id: "gc-delete-row", style: "display:flex;" },
-            h(
-              "button",
-              { class: "gc-btn gc-btn-danger", id: ACTION_BUTTON_IDS.DELETE_OPEN_EMAIL, style: "width:100%;" },
-              LABELS.DELETE_OPEN_EMAIL
-            )
-          )
+          // Opt-in (popup toggle); hidden rows are never selected (see getSelectedActionIds).
+          buildDeleteRow(ACTION_BUTTON_IDS.DELETE_THIS_PAGE, LABELS.DELETE_THIS_PAGE),
+          buildDeleteRow(ACTION_BUTTON_IDS.DELETE_ALL_PAGES, LABELS.DELETE_ALL_PAGES)
         ),
         h(
           "div",
@@ -527,7 +531,7 @@
     syncExtensionVisibilityFromStorage();
   }
 
-  Object.assign(GC, { askProceedConfirmation, buildActionRow, buildNextTargetSection, buildSidebarRoot,
+  Object.assign(GC, { askProceedConfirmation, buildActionRow, buildDeleteRow, buildNextTargetSection, buildSidebarRoot,
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
