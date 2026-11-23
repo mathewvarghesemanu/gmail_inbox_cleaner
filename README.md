@@ -62,6 +62,7 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 - Draggable toggle button — icon-only, shows its label on hover; slides along Y-axis, grip icon on hover
 - Buttons and checkboxes disable automatically when no email is open (with an "Open an email" hint) or an action is running
 - Popup setting to show or hide the in-page extension UI
+- Popup `Fast mode (skip waiting)` (off by default) — skips the settle pauses between steps and the countdown on prompts that auto-proceed, with a caution that actions will happen very fast. Delete confirmations, retry backoffs and waits for Gmail to finish loading are kept. A `⚡ Fast mode` badge shows in the sidebar header while it is on
 - Optional `Delete Listed Emails in This Page` / `in All Pages` (sidebar: **Delete → This page / All pages**; off by default; enable in the popup). Same sender-locked flow as archive, but moves to Trash. Asks first (never auto-proceeds) unless confirmation is skipped in the popup
 
 ## Keyboard shortcuts
