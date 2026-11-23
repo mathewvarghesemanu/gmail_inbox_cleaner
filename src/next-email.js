@@ -193,8 +193,39 @@
     return senderSignalMatchesExpected(lockedSender, expectedSender);
   }
 
+  /**
+   * Returns the list the open email was opened from (search, label, category,
+   * All Mail) when it can be used for discovery, else "". Scanning that list
+   * finds the email on page 1; scanning the inbox instead pages through every
+   * inbox page when the email came from a search and isn't near the inbox top.
+   */
+  function getUsableOriginListHash(originListHash) {
+    const listHash = getListContextHashFromHash(originListHash || "");
+    if (!listHash || listHash === "#inbox") return "";
+    if (listHash.startsWith("#search/")) {
+      let query = listHash.slice("#search/".length);
+      try {
+        query = decodeURIComponent(query.replace(/\+/g, " "));
+      } catch (_) {
+        // keep raw query
+      }
+      // A one-sender search can never contain a different sender's email.
+      if (extractSenderFromQuery(query)) return "";
+    }
+    return listHash;
+  }
+
   /** Navigates to discovery list context. */
-  async function navigateToDiscoveryListContext(expectedSender) {
+  async function navigateToDiscoveryListContext(expectedSender, originListHash = "") {
+    const originList = getUsableOriginListHash(originListHash);
+    if (originList) {
+      if (getCurrentListContextHash() !== originList || !getThreadRows().length) {
+        navigateWithinGmail(originList);
+      }
+      await waitForThreadRows(12000);
+      await sleep(200);
+      return;
+    }
     if (canUseLockedSearchForDiscovery(expectedSender)) {
       const lockedQuery = normalizeQuery(state.lockedQuery || state.query || "");
       await ensureSearchContext(lockedQuery);
@@ -213,6 +244,8 @@
       if (typeof onProgress === "function") onProgress(message);
     };
     const safeMaxPages = normalizeScanPageLimit(maxPages);
+    // Capture before navigating: the list the open email was opened from.
+    const originListHash = location.hash || "";
     const expectedSender = normalizeEmail(sender);
     let signatureMatched = false;
 
@@ -260,11 +293,11 @@
       return null;
     };
 
-    await navigateToDiscoveryListContext(expectedSender);
+    await navigateToDiscoveryListContext(expectedSender, originListHash);
 
     for (let page = 0; page < safeMaxPages; page += 1) {
       if (GC.shouldStopExecution()) return null;
-      report(`Scanning inbox page ${page + 1}/${safeMaxPages}...`);
+      report(`Scanning list page ${page + 1}/${safeMaxPages}...`);
 
       const rows = getThreadRows();
       for (let i = 0; i < rows.length; i += 1) {
@@ -616,7 +649,7 @@
   Object.assign(GC, { actionGoInbox, actionGoNextPage, announceEmailTargetStatus,
     cacheNextEmailTargetForSender, canUseLockedSearchForDiscovery, clearCachedNextEmailTarget,
     findCachedTargetRowIndex, findNextDifferentSenderThreadUrl, getCachedNextEmailPayload,
-    isCachedTargetValidForCurrentContext, loadCachedNextEmailTarget, navigateToDiscoveryListContext,
+    getUsableOriginListHash, isCachedTargetValidForCurrentContext, loadCachedNextEmailTarget, navigateToDiscoveryListContext,
     navigateToInboxForDiscovery, nextTargetFromStored, openCachedNextEmailFromListContext,
     persistCachedNextEmailTarget, renderNextEmailTargetSection, unwrapStoredNextTarget });
 })();
