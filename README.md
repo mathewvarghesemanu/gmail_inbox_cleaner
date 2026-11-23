@@ -53,7 +53,7 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 - One status area for prompts, messages (info / success / warning / error) and undo offers; failures are shown, not only logged
 - Clicking a selected Archive/Delete or Inbox option again clears it
 - Confirmation prompts take keyboard focus (Cancel by default for deletes); `Escape` cancels
-- Dark theme for the sidebar (follows Gmail's theme) and the popup (follows the system setting)
+- Popup `Theme` setting: `Auto` (default; the sidebar follows Gmail's theme, the popup follows the system setting), `Light` or `Dark` (forces both)
 - Proceed/stop confirmation (with auto-proceed countdown) when no unsubscribe control is found
 - Keyboard shortcuts (see below), shown on the sidebar buttons
 - Popup `Keyboard shortcuts` — lists the assigned shortcuts, with a button that opens `chrome://extensions/shortcuts`
