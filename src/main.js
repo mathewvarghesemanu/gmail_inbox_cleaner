@@ -3,17 +3,14 @@
   const GC = window.__gc;
   if (!GC || GC.skipLoad) return;
 
-  const { DEFAULT_SCAN_PAGE_LIMIT, MAX_SCAN_PAGES_KEY, NEXT_EMAIL_TARGET_CACHE_KEY, SHOW_EXTENSION_KEY,
+  const { NEXT_EMAIL_TARGET_CACHE_KEY, SHOW_EXTENSION_KEY,
     buildMessageSignature, createEmptyNextTarget, escapeHtml, extractSenderFromQuery,
     findCurrentRowIndexInDom, findOpenEmailSender, getNormalizedWords, getOpenEmailSubject,
     getRowFingerprint, getWordOverlapScore, hashString, installShortcutCommandListener,
     isCachedTargetValidForCurrentContext, isContextInvalidatedError, keepElInView, loadCachedNextEmailTarget,
     markExtensionContextInvalidated, mountSidebar, nextTargetFromStored, normalizeEmail, normalizeQuery,
-    normalizeScanPageLimit, normalizeSubjectForMatch, parseDateSignature, refreshOpenEmailState,
-    renderNextEmailTargetSection, scoreRowAgainstEmailSignature, setExtensionVisibility, state,
-    syncScanPageLimitFromStorage } = GC;
-
-  state.maxScanPages = DEFAULT_SCAN_PAGE_LIMIT;
+    normalizeSubjectForMatch, parseDateSignature, refreshOpenEmailState,
+    renderNextEmailTargetSection, scoreRowAgainstEmailSignature, setExtensionVisibility, state } = GC;
 
   /** Bootstraps startup. */
   function boot() {
@@ -61,9 +58,6 @@
     if (changes[SHOW_EXTENSION_KEY]) {
       setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
     }
-    if (changes[MAX_SCAN_PAGES_KEY]) {
-      state.maxScanPages = normalizeScanPageLimit(changes[MAX_SCAN_PAGES_KEY].newValue);
-    }
     if (changes[NEXT_EMAIL_TARGET_CACHE_KEY]) {
       const cached = changes[NEXT_EMAIL_TARGET_CACHE_KEY].newValue || {};
       if (!isCachedTargetValidForCurrentContext(cached)) {
@@ -75,7 +69,6 @@
       renderNextEmailTargetSection();
     }
   };
-  syncScanPageLimitFromStorage();
   try {
     chrome.storage.onChanged.addListener(onStorageChanged);
   } catch (error) {
@@ -108,7 +101,6 @@
       scoreRowAgainstEmailSignature,
       findCurrentRowIndex: findCurrentRowIndexInDom,
       findCurrentRowIndexInDom,
-      normalizeScanPageLimit,
       escapeHtml,
       findOpenEmailSender,
       getRowFingerprint,

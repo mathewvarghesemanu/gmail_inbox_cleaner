@@ -9,9 +9,16 @@
     getOpenEmailFingerprint, getRowDateText, getRowFingerprint, getRowOpenControl, getRowSenderEmail,
     getRowSubjectText, getRowThreadLegacyId, getRowThreadUrlToken, getThreadRows, getThreadUrlFromRow,
     goToNextResultsPage, navigateWithinGmail, normalizeComparableUrl, normalizeEmail,
-    normalizeFingerprintText, normalizeQuery, normalizeScanPageLimit, normalizeSubjectForMatch,
+    normalizeFingerprintText, normalizeQuery, normalizeSubjectForMatch,
     parseDateSignature, robustClick, safeStorageGet, safeStorageSet, scoreRowAgainstEmailSignature,
     senderSignalMatchesExpected, setLog, sleep, state, waitForSelector, waitForThreadRows } = GC;
+
+  /**
+   * Pages scanned when finding the next email. Discovery uses the list the email
+   * was opened from, so it is normally on page 1; page 2 covers the case where
+   * the rest of page 1 is the same sender. More pages only add page flipping.
+   */
+  const NEXT_EMAIL_SCAN_PAGES = 2;
 
   /**
    * Extracts the raw target fields from a stored cache payload.
@@ -237,13 +244,12 @@
 
   /** Finds next different sender thread url. */
   async function findNextDifferentSenderThreadUrl(sender, options = {}) {
-    const configuredMaxPages = normalizeScanPageLimit(state.maxScanPages);
-    const { maxPages = configuredMaxPages, onProgress = null } = options;
+    const { maxPages = NEXT_EMAIL_SCAN_PAGES, onProgress = null } = options;
     /** Handles report. */
     const report = (message) => {
       if (typeof onProgress === "function") onProgress(message);
     };
-    const safeMaxPages = normalizeScanPageLimit(maxPages);
+    const safeMaxPages = Math.max(1, Number.parseInt(String(maxPages), 10) || NEXT_EMAIL_SCAN_PAGES);
     // Capture before navigating: the list the open email was opened from.
     const originListHash = location.hash || "";
     const expectedSender = normalizeEmail(sender);
