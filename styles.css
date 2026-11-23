@@ -301,6 +301,25 @@
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.18);
 }
 
+.gc-action-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  padding: 0 6px;
+  margin: 0 -4px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.gc-action-check:hover:not(:has(:disabled)) {
+  background: rgba(60, 64, 67, 0.08);
+}
+
+.gc-action-check:has(:disabled) {
+  cursor: not-allowed;
+}
+
 .gc-action-checkbox {
   width: 16px;
   height: 16px;

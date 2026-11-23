@@ -191,3 +191,23 @@ describe("confirmation prompt keyboard handling", () => {
     GC.resolveProceedConfirmation(false);
   });
 });
+
+describe("option hit target", () => {
+  it("toggles the option when its surrounding label is clicked", () => {
+    const GC = load();
+    enableInputs();
+    const unsub = input(GC.ACTION_BUTTON_IDS.UNSUBSCRIBE);
+    const before = unsub.checked;
+    userClick(unsub.closest("label.gc-action-check"));
+    expect(unsub.checked).toBe(!before);
+  });
+
+  it("lets a checked radio be cleared through its label", () => {
+    const GC = load();
+    enableInputs();
+    const allPages = input(GC.ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES);
+    allPages.checked = true;
+    userClick(allPages.closest("label.gc-action-check"));
+    expect(allPages.checked).toBe(false);
+  });
+});

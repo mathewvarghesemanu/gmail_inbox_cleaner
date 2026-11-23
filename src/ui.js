@@ -420,7 +420,9 @@
       "data-label": short ? fullLabel : null,
       "aria-label": short ? fullLabel : null
     }, label);
-    const row = h("div", { class: "gc-action-row" }, input, button);
+    // The wrapping label enlarges the click target beyond the 16px input.
+    const check = h("label", { class: "gc-action-check" }, input);
+    const row = h("div", { class: "gc-action-row" }, check, button);
     if (inputType === "radio") installRadioDeselect(row, input);
     return row;
   }
