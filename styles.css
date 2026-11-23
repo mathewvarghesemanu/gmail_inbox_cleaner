@@ -939,8 +939,9 @@
 #gc-coach-layer {
   position: fixed;
   inset: 0;
-  /* Under the panel and toggle so arrows tuck in at their edges. */
-  z-index: 2147483645;
+  /* Above the panel, so arrows can land on small controls inside it (minimise,
+     drag handle). Clicks pass through except on the note's buttons. */
+  z-index: 2147483647;
   pointer-events: none;
   font-family: "Google Sans", "Segoe UI", Arial, sans-serif;
   /* Light page: dark ink, blue arrows. */
@@ -1125,6 +1126,13 @@
 #gc-root .gc-coach-target {
   border-radius: 10px;
   animation: gc-coach-glow 1.6s ease-in-out infinite;
+}
+
+/* The drag handle is faint until hovered; show it fully while it is explained. */
+#gc-root #gc-drag-handle.gc-coach-target {
+  width: 44px;
+  margin: 0 auto 4px;
+  opacity: 1;
 }
 
 #gc-root[data-gc-theme="dark"] .gc-coach-target {

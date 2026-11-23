@@ -110,13 +110,27 @@
       done: "Finish",
       skip: "Skip tour",
       paused: { title: "Tour paused", text: "Click to pick up where you left off." },
-      steps: [
-        { title: "Open an email first", text: "Its sender shows here. Every action targets this sender." },
-        { title: "Prepare", text: "Unsubscribe, then select every email from the same sender." },
-        { title: "Archive", text: "Clear the matches on this page, or across all pages." },
-        { title: "Run it all", text: "Execute Selected runs the ticked steps in order. Stop any time." },
-        { title: "Tuck it away", text: "Minimise the panel here. The \u2709 button on the right edge brings it back. Replay this tour from the extension menu." }
-      ]
+      /** Keyed by onboarding.js STEPS; archiveDelete replaces archive when Delete is on. */
+      steps: {
+        sender: { title: "Open an email first", text: "Its sender shows here. Every action targets this sender." },
+        move: { title: "Move it anywhere", text: "Drag the panel by its top bar. The \u2709 button on the edge slides up and down too." },
+        prepare: { title: "Prepare", text: "Unsubscribe, then select every email from the same sender." },
+        archive: { title: "Archive", text: "Clear the matches on this page, or across all pages." },
+        archiveDelete: {
+          title: "Archive or delete",
+          text: "Archive clears the matches from your inbox. Delete moves them to Trash. Pick this page or all pages."
+        },
+        inbox: { title: "Move on", text: "When it's done, go back to the inbox or straight to the next email." },
+        showArchived: {
+          title: "Changed your mind?",
+          text: "Show Archived lists the archived emails from this sender, so you can move any back."
+        },
+        run: { title: "Run it all", text: "Execute Selected runs the ticked steps in order. Stop any time." },
+        minimize: {
+          title: "Tuck it away",
+          text: "Minimise the panel with this button. The \u2709 button on the right edge brings it back. Replay this tour from the extension menu."
+        }
+      }
     },
     prompt: {
       noUnsubscribe:
