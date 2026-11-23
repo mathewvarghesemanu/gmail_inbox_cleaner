@@ -296,20 +296,41 @@
     );
   }
 
+  /**
+   * Lets a checked radio be cleared by clicking it again (native radios cannot be
+   * unchecked, so a chosen archive/inbox option could otherwise never be turned off).
+   * The pre-click state is captured on mousedown / Space keydown, before the browser
+   * applies the click.
+   */
+  function installRadioDeselect(row, input) {
+    let wasChecked = false;
+    const capture = () => {
+      wasChecked = input.checked;
+    };
+    row.addEventListener("mousedown", capture, true);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === " ") capture();
+    }, true);
+    input.addEventListener("click", () => {
+      if (!wasChecked) return;
+      wasChecked = false;
+      input.checked = false;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
+
   /** Builds one checkbox/radio + button action row. */
   function buildActionRow(actionId, label, inputType = "checkbox", radioName = null) {
-    return h(
-      "div",
-      { class: "gc-action-row" },
-      h("input", {
-        class: "gc-action-checkbox",
-        type: inputType,
-        name: radioName,
-        "data-action-id": actionId,
-        "aria-label": STRINGS.ui.selectActionAria(label)
-      }),
-      h("button", { class: "gc-btn", id: actionId }, label)
-    );
+    const input = h("input", {
+      class: "gc-action-checkbox",
+      type: inputType,
+      name: radioName,
+      "data-action-id": actionId,
+      "aria-label": STRINGS.ui.selectActionAria(label)
+    });
+    const row = h("div", { class: "gc-action-row" }, input, h("button", { class: "gc-btn", id: actionId }, label));
+    if (inputType === "radio") installRadioDeselect(row, input);
+    return row;
   }
 
   /** Builds a delete option row: same radio group as archive, hidden until enabled. */
