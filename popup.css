@@ -388,6 +388,47 @@ label.row:hover {
   color: var(--accent);
 }
 
+/* "Take the tour" card under the stats. */
+.tour-button {
+  margin-top: 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tour-button:hover {
+  background: var(--hover);
+  border-color: var(--accent);
+}
+
+.tour-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tour-button small {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tour-button-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
 /* Hidden until popup.js has read settings (theme, first run); 400 ms fallback. */
 html[data-loading] body {
   opacity: 0;
@@ -532,6 +573,7 @@ html[data-intro] .stat-tile:nth-child(3) { animation-delay: 400ms; }
 html[data-intro] .stat-tile:nth-child(4) { animation-delay: 450ms; }
 html[data-intro] .stat-tile:nth-child(5) { animation-delay: 500ms; }
 html[data-intro] .footnote { animation-delay: 560ms; }
+html[data-intro] .tour-button { animation: intro-rise 420ms cubic-bezier(0.2, 0.8, 0.2, 1) 620ms both; }
 
 .welcome-wave {
   display: inline-block;
@@ -552,6 +594,7 @@ html[data-intro] .welcome.welcome-leaving {
   html[data-intro] .stats-heading,
   html[data-intro] .stat-tile,
   html[data-intro] .footnote,
+  html[data-intro] .tour-button,
   html[data-intro] .welcome,
   html[data-intro] .welcome-wave,
   .welcome.welcome-leaving {

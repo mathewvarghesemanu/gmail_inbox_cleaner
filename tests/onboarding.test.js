@@ -1,96 +1,88 @@
-// First-run sidebar onboarding: a note points at the toggle, then annotated arrows
-// point at the panel's controls until the user dismisses them.
+// Sidebar tour: starts by itself on first visit, one step at a time, skippable.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadContentScripts } from "./load-content.js";
 
 const SEEN = "onboardingSidebarSeen";
 
 function load(storage = {}) {
-  const { chrome } = loadContentScripts({ fixture: "gmail-list.html", hash: "#inbox", storage });
+  const { chrome } = loadContentScripts({
+    fixture: "gmail-list.html", hash: "#inbox", storage: { [SEEN]: false, ...storage }
+  });
   const GC = window.__gc;
   GC.mountSidebar();
-  GC.refreshCoachOverlay?.();
+  GC.refreshCoachOverlay();
   return { GC, chrome };
 }
 
-const toggle = () => document.getElementById("gc-toggle");
 const layer = () => document.getElementById("gc-coach-layer");
-const notes = () => [...document.querySelectorAll(".gc-coach-note")];
-const openPanel = (GC) => {
-  toggle().click();
-  GC.refreshCoachOverlay();
-};
+const count = () => document.querySelector(".gc-coach-count")?.textContent;
 
 beforeEach(() => {
   vi.spyOn(Element.prototype, "getClientRects").mockReturnValue([{ width: 1, height: 1 }]);
-  // jsdom has no layout: give every element a box so targets count as visible.
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
     left: 700, right: 1000, top: 100, bottom: 140, width: 300, height: 40, x: 700, y: 100
   });
 });
 afterEach(() => {
-  document.getElementById("gc-coach-layer")?.remove();
+  window.__gc?.finishTour?.();
   document.body.style.backgroundColor = "";
   vi.restoreAllMocks();
 });
 
-describe("sidebar onboarding", () => {
-  it("points at the toggle for first-time users", () => {
+describe("sidebar tour", () => {
+  it("starts by itself on the first visit, opening the panel at step 1", () => {
     load();
-    expect(layer()?.dataset.mode).toBe("toggle");
-    expect(notes()).toHaveLength(1);
-    expect(toggle().classList.contains("gc-toggle-intro")).toBe(true);
-    expect(document.querySelectorAll(".gc-coach-arrow")).toHaveLength(1);
+    expect(document.getElementById("gc-root").classList.contains("gc-hidden")).toBe(false);
+    expect(layer()?.dataset.mode).toBe("step");
+    expect(count()).toBe("Step 1 of 5");
+    expect(document.querySelector("#gc-context.gc-coach-target")).not.toBeNull();
   });
 
-  it("switches to four annotated arrows when the panel opens", () => {
-    const { GC } = load();
-    openPanel(GC);
-    expect(layer()?.dataset.mode).toBe("tour");
-    expect(notes()).toHaveLength(4);
-    expect(toggle().classList.contains("gc-toggle-intro")).toBe(false);
-    document.querySelectorAll(".gc-coach-arrow").forEach((path) => {
-      expect(path.getAttribute("d")).toMatch(/^M [\d.-]+ [\d.-]+ Q /);
-    });
-    // Panel sits on the right of the viewport, so notes go on its left.
-    expect(layer().dataset.side).toBe("left");
-  });
-
-  it("is dismissed for good with Got it", () => {
-    const { GC, chrome } = load();
-    openPanel(GC);
-    document.querySelector(".gc-coach-done").click();
+  it("moves on with Next and finishes on the last step", () => {
+    const { chrome } = load();
+    for (let step = 2; step <= 5; step += 1) {
+      document.querySelector(".gc-coach-next").click();
+      expect(count()).toBe(`Step ${step} of 5`);
+    }
+    document.querySelector(".gc-coach-next").click();
     expect(layer()).toBeNull();
     expect(chrome.__store[SEEN]).toBe(true);
-    GC.refreshCoachOverlay();
-    expect(layer()).toBeNull();
   });
 
-  it("is dismissed with Escape while the tour shows", () => {
-    const { GC, chrome } = load();
-    openPanel(GC);
+  it("can be skipped with Skip tour or Escape", () => {
+    const { chrome } = load();
+    document.querySelector(".gc-coach-skip").click();
+    expect(layer()).toBeNull();
+    expect(chrome.__store[SEEN]).toBe(true);
+
+    const second = load();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     expect(layer()).toBeNull();
-    expect(chrome.__store[SEEN]).toBe(true);
+    expect(second.chrome.__store[SEEN]).toBe(true);
   });
 
-  it("goes back to the toggle note when the panel is minimised mid-tour", () => {
+  it("pauses on the toggle when minimised, with Skip still available", () => {
     const { GC } = load();
-    openPanel(GC);
     document.getElementById("gc-minimize").click();
     GC.refreshCoachOverlay();
-    expect(layer()?.dataset.mode).toBe("toggle");
+    expect(layer()?.dataset.mode).toBe("paused");
+    expect(document.querySelector(".gc-coach-skip")).not.toBeNull();
   });
 
-  it("never shows once seen", () => {
+  it("does not start once seen, but can be replayed", () => {
     const { GC } = load({ [SEEN]: true });
-    openPanel(GC);
     expect(layer()).toBeNull();
-    expect(toggle().classList.contains("gc-toggle-intro")).toBe(false);
+    GC.startTour();
+    expect(count()).toBe("Step 1 of 5");
   });
 
-  it("uses light ink on a dark page and dark ink on a light page", () => {
-    const { GC } = load();
+  it("starts when the popup asked a new Gmail tab to", () => {
+    load({ [SEEN]: true, onboardingTourRequested: Date.now() });
+    expect(count()).toBe("Step 1 of 5");
+  });
+
+  it("picks ink from the page background", () => {
+    const { GC } = load({ [SEEN]: true });
     document.body.style.backgroundColor = "rgb(32, 33, 36)";
     expect(GC.samplePageTone(10, 10)).toBe("dark");
     document.body.style.backgroundColor = "rgb(255, 255, 255)";

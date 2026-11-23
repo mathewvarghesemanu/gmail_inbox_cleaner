@@ -1008,20 +1008,27 @@
 
 .gc-coach-arrow {
   stroke-dasharray: 1;
-  animation: gc-coach-draw 520ms cubic-bezier(0.45, 0, 0.2, 1) var(--gc-coach-delay, 0ms) both;
+  animation: gc-coach-draw 520ms cubic-bezier(0.45, 0, 0.2, 1) both;
 }
 
 .gc-coach-arrow-head {
-  animation: gc-coach-fade 160ms ease-out var(--gc-coach-delay, 0ms) both;
+  animation: gc-coach-fade 160ms ease-out both;
 }
 
-.gc-coach-note,
-.gc-coach-footer {
+.gc-coach-note {
   position: absolute;
   margin: 0;
   color: var(--gc-ink);
-  animation: gc-coach-fade-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--gc-coach-delay, 0ms) both;
+  animation: gc-coach-fade-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   transition: color 0.2s;
+}
+
+.gc-coach-arrow {
+  animation-delay: 120ms;
+}
+
+.gc-coach-arrow-head {
+  animation-delay: 560ms;
 }
 
 .gc-coach-note p {
@@ -1033,64 +1040,105 @@
   text-align: right;
 }
 
+.gc-coach-count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gc-arrow);
+}
+
 .gc-coach-note-title {
-  font-size: 16px;
+  margin-top: 2px !important;
+  font-size: 17px;
   font-weight: 700;
   line-height: 1.3;
 }
 
 .gc-coach-note-text {
-  margin-top: 2px !important;
+  margin-top: 3px !important;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--gc-ink-soft);
 }
 
-.gc-coach-footer {
+.gc-coach-controls {
+  margin-top: 12px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  gap: 8px;
   pointer-events: auto;
 }
 
-#gc-coach-layer[data-side="left"] .gc-coach-footer {
-  flex-direction: row-reverse;
+#gc-coach-layer[data-side="left"] .gc-coach-controls {
+  justify-content: flex-end;
 }
 
-.gc-coach-done {
+.gc-coach-controls button {
   font: inherit;
   font-size: 13px;
-  font-weight: 600;
-  padding: 7px 18px;
-  border: 0;
+  font-weight: 700;
+  padding: 7px 14px;
   border-radius: 999px;
-  background: var(--gc-arrow);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  transition: transform 0.1s, filter 0.15s;
 }
 
-[data-tone="dark"] .gc-coach-done {
-  color: #062e6f;
+.gc-coach-controls button:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
 }
 
-.gc-coach-done:hover {
-  filter: brightness(1.08);
-}
-
-.gc-coach-done:focus-visible {
-  outline: 2px solid var(--gc-ink);
+.gc-coach-controls button:focus-visible {
+  outline: 3px solid var(--gc-ink);
   outline-offset: 2px;
 }
 
-.gc-coach-esc {
-  font-size: 12px;
-  color: var(--gc-ink-soft);
-  text-shadow: 0 0 2px var(--gc-halo), 0 0 6px var(--gc-halo);
+/* Skip stays loud on every background: Google yellow with near-black text. */
+.gc-coach-skip {
+  border: 2px solid #202124;
+  background: #fbbc04;
+  color: #202124;
 }
 
-.gc-coach-off {
-  display: none;
+.gc-coach-next {
+  border: 2px solid transparent;
+  background: var(--gc-arrow);
+  color: #ffffff;
+}
+
+[data-tone="dark"] .gc-coach-next {
+  color: #062e6f;
+}
+
+/* The control the current step explains, inside the panel. */
+@keyframes gc-coach-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.65);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(11, 87, 208, 0.2);
+  }
+}
+
+#gc-root .gc-coach-target {
+  border-radius: 10px;
+  animation: gc-coach-glow 1.6s ease-in-out infinite;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-coach-target {
+  animation-name: gc-coach-glow-dark;
+}
+
+@keyframes gc-coach-glow-dark {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.75);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(138, 180, 248, 0.25);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1102,8 +1150,16 @@
   .gc-coach-arrow,
   .gc-coach-arrow-head,
   .gc-coach-note,
-  .gc-coach-footer {
+  #gc-root .gc-coach-target {
     animation: none;
+  }
+
+  #gc-root .gc-coach-target {
+    box-shadow: 0 0 0 2px rgba(11, 87, 208, 0.65);
+  }
+
+  .gc-coach-controls button:hover {
+    transform: none;
   }
 
   .gc-coach-arrow {
