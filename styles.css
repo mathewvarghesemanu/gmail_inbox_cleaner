@@ -173,7 +173,22 @@
 
 .gc-btn:disabled {
   opacity: 0.6;
-  cursor: progress;
+  cursor: not-allowed;
+}
+
+#gc-root.gc-is-working .gc-btn:disabled,
+#gc-root.gc-is-working .gc-action-checkbox:disabled {
+  cursor: not-allowed;
+}
+
+#gc-context {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px dashed #dadce0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #5f6368;
+  text-align: center;
 }
 
 .gc-action-row {
@@ -220,7 +235,7 @@
 }
 
 .gc-action-checkbox:disabled {
-  cursor: progress;
+  cursor: not-allowed;
 }
 
 .gc-btn-execute {

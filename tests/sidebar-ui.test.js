@@ -57,3 +57,18 @@ describe("radio options", () => {
     expect(thisPage.checked).toBe(false);
   });
 });
+
+describe("context bar", () => {
+  it("explains disabled actions when no email is open", () => {
+    load();
+    const bar = document.getElementById("gc-context");
+    expect(bar.classList.contains("gc-hidden")).toBe(false);
+    expect(bar.textContent).toMatch(/open an email/i);
+  });
+
+  it("hides the hint once an email is open", () => {
+    loadContentScripts({ fixture: "gmail-thread.html", hash: "#inbox/FMfcgzQBBBBB1111" });
+    window.__gc.refreshOpenEmailState();
+    expect(document.getElementById("gc-context").textContent).not.toMatch(/open an email/i);
+  });
+});

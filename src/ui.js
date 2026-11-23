@@ -182,6 +182,9 @@
       checkbox.disabled = working || !emailOpen;
     });
 
+    document.getElementById("gc-root")?.classList.toggle("gc-is-working", working);
+    renderContextBar();
+
     const workingEl = document.getElementById("gc-working");
     if (workingEl) {
       workingEl.classList.toggle("gc-working-visible", working);
@@ -189,6 +192,15 @@
     }
 
     updateExecuteSelectedState();
+  }
+
+  /** Explains why actions are disabled when no email is open. */
+  function renderContextBar() {
+    const bar = document.getElementById("gc-context");
+    if (!bar) return;
+    const emailOpen = !!state.openSender;
+    bar.textContent = emailOpen ? "" : STRINGS.ui.openEmailHint;
+    bar.classList.toggle("gc-hidden", emailOpen);
   }
 
   /** Detects current email open state and refreshes controls. No-op while action in progress. */
@@ -403,6 +415,7 @@
       h(
         "div",
         { id: "gc-body" },
+        h("p", { id: "gc-context", class: "gc-hidden" }),
         h(
           "div",
           { class: "gc-section gc-section-prepare" },
@@ -555,7 +568,7 @@
   Object.assign(GC, { askProceedConfirmation, buildActionRow, buildDeleteRow, buildNextTargetSection, buildSidebarRoot,
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
-    refreshOpenEmailState, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
+    refreshOpenEmailState, renderContextBar, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
     setExtensionVisibility, setProceedButtonLabel, setWorking, showToast, startProceedAutoCountdown,
     stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, toastQueue,
     updateExecuteSelectedState });
