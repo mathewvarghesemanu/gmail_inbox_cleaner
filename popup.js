@@ -122,9 +122,39 @@ function initDeleteSettings(stored) {
   });
 }
 
+/** Lists the assigned keyboard shortcuts and links to Chrome's shortcut settings. */
+function initShortcuts() {
+  const list = document.getElementById("shortcut-list");
+  const empty = document.getElementById("shortcut-empty");
+  if (list && chrome.commands?.getAll) {
+    chrome.commands.getAll((commands) => {
+      const assigned = (commands || []).filter((command) => command.shortcut && command.description);
+      list.replaceChildren(
+        ...assigned.map((command) => {
+          const item = document.createElement("li");
+          const name = document.createElement("span");
+          name.className = "shortcut-name";
+          name.textContent = command.description;
+          const keys = document.createElement("kbd");
+          keys.textContent = command.shortcut;
+          item.append(name, keys);
+          return item;
+        })
+      );
+      if (empty) empty.hidden = assigned.length > 0;
+    });
+  }
+
+  // chrome:// pages cannot be opened from a plain link in an extension popup.
+  document.getElementById("customize-shortcuts")?.addEventListener("click", () => {
+    chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
+  });
+}
+
 /** Handles init. */
 async function init() {
   initStats();
+  initShortcuts();
   const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY]);
 
   const checkbox = document.getElementById("show-extension");

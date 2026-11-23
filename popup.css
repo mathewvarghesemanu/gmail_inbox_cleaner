@@ -204,3 +204,75 @@ body {
 .stats-reset:hover {
   background: #f1f3f4;
 }
+
+.shortcuts {
+  margin-top: 12px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.shortcuts h2 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shortcut-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.shortcut-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.shortcut-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcut-list kbd {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border: 1px solid #dadce0;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.shortcut-empty {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #5f6368;
+}
+
+.secondary-button {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0b57d0;
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  background: #f1f3f4;
+}
