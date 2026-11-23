@@ -3199,6 +3199,185 @@
     }
   }
 
+  /**
+   * Tiny DOM builder: h(tag, attrs, ...children).
+   * attrs are set with setAttribute (true -> empty attribute, false/null/undefined -> skipped);
+   * children may be strings (text nodes), nodes, arrays, or null.
+   */
+  function h(tag, attrs = {}, ...children) {
+    const el = document.createElement(tag);
+    for (const [name, value] of Object.entries(attrs || {})) {
+      if (value === false || value === null || value === undefined) continue;
+      el.setAttribute(name, value === true ? "" : String(value));
+    }
+    const append = (child) => {
+      if (child === null || child === undefined || child === false) return;
+      if (Array.isArray(child)) {
+        child.forEach(append);
+        return;
+      }
+      el.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
+    };
+    children.forEach(append);
+    return el;
+  }
+
+  /** Builds the floating toggle button. */
+  function buildToggle() {
+    return h(
+      "button",
+      { id: "gc-toggle", type: "button" },
+      h("span", { id: "gc-toggle-grip", "aria-hidden": "true" }, "\u283f"),
+      STRINGS.ui.toggle
+    );
+  }
+
+  /** Builds one checkbox/radio + button action row. */
+  function buildActionRow(actionId, label, inputType = "checkbox", radioName = null) {
+    return h(
+      "div",
+      { class: "gc-action-row" },
+      h("input", {
+        class: "gc-action-checkbox",
+        type: inputType,
+        name: radioName,
+        "data-action-id": actionId,
+        "aria-label": STRINGS.ui.selectActionAria(label)
+      }),
+      h("button", { class: "gc-btn", id: actionId }, label)
+    );
+  }
+
+  /** Builds the next-email target details accordion section. */
+  function buildNextTargetSection() {
+    const labels = STRINGS.ui.nextTargetLabels;
+    const empty = STRINGS.ui.emptyValue;
+    const rows = [
+      ["url", "gc-next-target-url", STRINGS.ui.notCached],
+      ["sender", "gc-next-target-sender", empty],
+      ["subject", "gc-next-target-subject", empty],
+      ["date", "gc-next-target-date", empty],
+      ["threadId", "gc-next-target-thread-id", empty],
+      ["threadToken", "gc-next-target-thread-token", empty],
+      ["pageOffset", "gc-next-target-page-offset", "0"],
+      ["listHash", "gc-next-target-list-hash", empty]
+    ];
+    return h(
+      "div",
+      { id: "gc-next-target-section", class: "gc-section gc-hidden" },
+      h(
+        "details",
+        { id: "gc-next-target-accordion" },
+        h(
+          "summary",
+          { id: "gc-next-target-summary-text", class: "gc-next-target-summary" },
+          STRINGS.ui.notCached
+        ),
+        h(
+          "div",
+          { class: "gc-next-target-grid" },
+          rows.map(([key, id, initial]) => [
+            h("div", { class: "gc-next-target-label" }, labels[key]),
+            h("div", { id, class: "gc-next-target-value" }, initial)
+          ])
+        )
+      )
+    );
+  }
+
+  /** Builds the sidebar root (same ids/classes/structure styles.css expects). */
+  function buildSidebarRoot() {
+    const ui = STRINGS.ui;
+    const root = h("aside", { id: "gc-root", class: "gc-hidden" });
+    root.append(
+      h(
+        "div",
+        { id: "gc-header" },
+        h("span", { id: "gc-drag-handle", "aria-hidden": "true" }, "\u283f"),
+        h(
+          "button",
+          { type: "button", id: "gc-minimize", title: ui.minimizeTitle, "aria-label": ui.minimizeAria },
+          "\u2013"
+        ),
+        h("p", { id: "gc-title" }, ui.title)
+      ),
+      h(
+        "div",
+        { id: "gc-working", "aria-live": "polite", "aria-hidden": "true" },
+        h("span", { class: "gc-working-spinner", "aria-hidden": "true" }),
+        h("span", { class: "gc-working-text" }, ui.working)
+      ),
+      h(
+        "div",
+        { id: "gc-body" },
+        h(
+          "div",
+          { class: "gc-section gc-section-prepare" },
+          h("p", { class: "gc-section-title" }, ui.sectionPrepare),
+          buildActionRow(ACTION_BUTTON_IDS.UNSUBSCRIBE, LABELS.UNSUBSCRIBE_OPEN_EMAIL),
+          buildActionRow(ACTION_BUTTON_IDS.SELECT_LIKE_OPEN, LABELS.SELECT_LIKE_OPEN_EMAIL)
+        ),
+        h(
+          "div",
+          { class: "gc-section gc-section-archive" },
+          h("p", { class: "gc-section-title" }, ui.sectionArchive),
+          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE, LABELS.ARCHIVE_THIS_PAGE, "radio", "gc-archive-mode"),
+          buildActionRow(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES, LABELS.ARCHIVE_ALL_PAGES, "radio", "gc-archive-mode")
+        ),
+        h(
+          "div",
+          { class: "gc-section gc-section-inbox" },
+          h("p", { class: "gc-section-title" }, ui.sectionInbox),
+          buildActionRow(ACTION_BUTTON_IDS.GO_TO_INBOX, LABELS.GO_TO_INBOX, "radio", "gc-inbox-mode"),
+          buildActionRow(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE, LABELS.GO_TO_NEXT_PAGE, "radio", "gc-inbox-mode"),
+          h(
+            "div",
+            { class: "gc-action-row", style: "display:flex;justify-content:center;" },
+            h(
+              "button",
+              { class: "gc-btn", id: "gc-show-archived", style: "width:100%;text-align:center;" },
+              ui.showArchived
+            )
+          )
+        ),
+        buildNextTargetSection(),
+        h(
+          "button",
+          {
+            class: "gc-btn gc-btn-execute",
+            id: "gc-execute-selected",
+            "data-ready": "false",
+            disabled: true,
+            title: `${ui.executeSelected} (${EXECUTE_SELECTED_SHORTCUT_LABEL})`
+          },
+          `${ui.executeSelected} `,
+          h("span", { class: "gc-shortcut-hint" }, EXECUTE_SELECTED_SHORTCUT_LABEL)
+        ),
+        h("button", { class: "gc-btn gc-btn-stop", id: "gc-stop-execution", disabled: true }, ui.stopExecution)
+      ),
+      h(
+        "div",
+        { id: "gc-confirm", role: "alert", "aria-live": "assertive" },
+        h("p", { id: "gc-confirm-message" }),
+        h(
+          "div",
+          { id: "gc-confirm-actions" },
+          h("button", { type: "button", id: "gc-confirm-proceed" }, ui.proceed),
+          h("button", { type: "button", id: "gc-confirm-stop" }, ui.stop)
+        )
+      ),
+      h(
+        "div",
+        { id: "gc-success", "aria-live": "polite" },
+        h("span", { class: "gc-success-icon", "aria-hidden": "true" }, "\u2713"),
+        h("span", { class: "gc-success-text" }, ui.completed)
+      ),
+      h("div", { id: "gc-log" }, ui.ready),
+      h("div", { id: "gc-toast", role: "status", "aria-live": "polite" })
+    );
+    return root;
+  }
+
   /** Mounts sidebar. */
   function mountSidebar() {
     if (state.extensionContextInvalidated) return;
@@ -3210,103 +3389,10 @@
       return;
     }
 
-    const toggle = document.createElement("button");
-    toggle.id = "gc-toggle";
-    toggle.type = "button";
-    toggle.innerHTML = '<span id="gc-toggle-grip" aria-hidden="true">⠿</span>Gmail unsubscriber';
+    const toggle = buildToggle();
     document.body.appendChild(toggle);
 
-    const root = document.createElement("aside");
-    root.id = "gc-root";
-    root.classList.add("gc-hidden");
-    root.innerHTML = `
-      <div id="gc-header">
-        <span id="gc-drag-handle" aria-hidden="true">⠿</span>
-        <button type="button" id="gc-minimize" title="Minimize" aria-label="Minimize panel">&#8211;</button>
-        <p id="gc-title">Gmail Unsubscriber Ondevice</p>
-      </div>
-      <div id="gc-working" aria-live="polite" aria-hidden="true">
-        <span class="gc-working-spinner" aria-hidden="true"></span>
-        <span class="gc-working-text">Working...</span>
-      </div>
-      <div id="gc-body">
-        <div class="gc-section gc-section-prepare">
-          <p class="gc-section-title">Prepare</p>
-          <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.UNSUBSCRIBE}" aria-label="Select ${escapeHtml(LABELS.UNSUBSCRIBE_OPEN_EMAIL)}" />
-            <button class="gc-btn" id="${ACTION_BUTTON_IDS.UNSUBSCRIBE}">${escapeHtml(LABELS.UNSUBSCRIBE_OPEN_EMAIL)}</button>
-          </div>
-          <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="checkbox" data-action-id="${ACTION_BUTTON_IDS.SELECT_LIKE_OPEN}" aria-label="Select ${escapeHtml(LABELS.SELECT_LIKE_OPEN_EMAIL)}" />
-            <button class="gc-btn" id="${ACTION_BUTTON_IDS.SELECT_LIKE_OPEN}">${escapeHtml(LABELS.SELECT_LIKE_OPEN_EMAIL)}</button>
-          </div>
-        </div>
-        <div class="gc-section gc-section-archive">
-          <p class="gc-section-title">Archive</p>
-          <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="radio" name="gc-archive-mode" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}" />
-            <button class="gc-btn" id="${ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE}">${escapeHtml(LABELS.ARCHIVE_THIS_PAGE)}</button>
-          </div>
-          <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="radio" name="gc-archive-mode" data-action-id="${ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES}" aria-label="Select ${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}" />
-            <button class="gc-btn" id="${ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES}">${escapeHtml(LABELS.ARCHIVE_ALL_PAGES)}</button>
-          </div>
-        </div>
-        <div class="gc-section gc-section-inbox">
-          <p class="gc-section-title">Inbox</p>
-          <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="radio" name="gc-inbox-mode" data-action-id="${ACTION_BUTTON_IDS.GO_TO_INBOX}" aria-label="Select ${escapeHtml(LABELS.GO_TO_INBOX)}" />
-            <button class="gc-btn" id="${ACTION_BUTTON_IDS.GO_TO_INBOX}">${escapeHtml(LABELS.GO_TO_INBOX)}</button>
-          </div>
-          <div class="gc-action-row">
-            <input class="gc-action-checkbox" type="radio" name="gc-inbox-mode" data-action-id="${ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE}" aria-label="Select ${escapeHtml(LABELS.GO_TO_NEXT_PAGE)}" />
-            <button class="gc-btn" id="${ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE}">${escapeHtml(LABELS.GO_TO_NEXT_PAGE)}</button>
-          </div>
-          <div class="gc-action-row" style="display:flex;justify-content:center;">
-            <button class="gc-btn" id="gc-show-archived" style="width:100%;text-align:center;">Show Archived</button>
-          </div>
-        </div>
-        <div id="gc-next-target-section" class="gc-section gc-hidden">
-          <details id="gc-next-target-accordion">
-            <summary id="gc-next-target-summary-text" class="gc-next-target-summary">Not cached yet.</summary>
-            <div class="gc-next-target-grid">
-              <div class="gc-next-target-label">URL</div>
-              <div id="gc-next-target-url" class="gc-next-target-value">Not cached yet.</div>
-              <div class="gc-next-target-label">Sender</div>
-              <div id="gc-next-target-sender" class="gc-next-target-value">-</div>
-              <div class="gc-next-target-label">Subject</div>
-              <div id="gc-next-target-subject" class="gc-next-target-value">-</div>
-              <div class="gc-next-target-label">Date</div>
-              <div id="gc-next-target-date" class="gc-next-target-value">-</div>
-              <div class="gc-next-target-label">Thread ID</div>
-              <div id="gc-next-target-thread-id" class="gc-next-target-value">-</div>
-              <div class="gc-next-target-label">Thread Token</div>
-              <div id="gc-next-target-thread-token" class="gc-next-target-value">-</div>
-              <div class="gc-next-target-label">Page Offset</div>
-              <div id="gc-next-target-page-offset" class="gc-next-target-value">0</div>
-              <div class="gc-next-target-label">List Context</div>
-              <div id="gc-next-target-list-hash" class="gc-next-target-value">-</div>
-            </div>
-          </details>
-        </div>
-        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled title="Execute Selected (${EXECUTE_SELECTED_SHORTCUT_LABEL})">Execute Selected <span class="gc-shortcut-hint">${EXECUTE_SELECTED_SHORTCUT_LABEL}</span></button>
-        <button class="gc-btn gc-btn-stop" id="gc-stop-execution" disabled>Stop Execution</button>
-      </div>
-      <div id="gc-confirm" role="alert" aria-live="assertive">
-        <p id="gc-confirm-message"></p>
-        <div id="gc-confirm-actions">
-          <button type="button" id="gc-confirm-proceed">Proceed</button>
-          <button type="button" id="gc-confirm-stop">Stop</button>
-        </div>
-      </div>
-      <div id="gc-success" aria-live="polite">
-        <span class="gc-success-icon" aria-hidden="true">✓</span>
-        <span class="gc-success-text">Completed</span>
-      </div>
-      <div id="gc-log">Ready.</div>
-      <div id="gc-toast" role="status" aria-live="polite"></div>
-    `;
-
+    const root = buildSidebarRoot();
     document.body.appendChild(root);
 
     toggle.addEventListener("click", () => {
