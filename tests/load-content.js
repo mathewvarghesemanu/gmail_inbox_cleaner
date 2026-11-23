@@ -52,7 +52,8 @@ export function readFixtureBody(name) {
 
 /** Creates a minimal in-memory chrome.* stub sufficient for the content script. */
 export function createChromeStub(initialStorage = {}) {
-  const store = { ...initialStorage };
+  // The first-run tour auto-opens the panel; only tests/onboarding.test.js wants that.
+  const store = { onboardingSidebarSeen: true, ...initialStorage };
   const changeListeners = [];
   const messageListeners = [];
   const pick = (keys) => {

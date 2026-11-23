@@ -103,6 +103,35 @@
       deleteCancelled: "Delete cancelled",
       deleteDisabled: "Delete is turned off in the extension popup"
     },
+    onboarding: {
+      ariaLabel: "Quick tour",
+      count: (step, total) => `Step ${step} of ${total}`,
+      next: "Next",
+      done: "Finish",
+      skip: "Skip tour",
+      paused: { title: "Tour paused", text: "Click to pick up where you left off." },
+      /** Keyed by onboarding.js STEPS; archiveDelete replaces archive when Delete is on. */
+      steps: {
+        sender: { title: "Open an email first", text: "Its sender shows here. Every action targets this sender." },
+        move: { title: "Move it anywhere", text: "Drag the panel by its top bar. The \u2709 button on the edge slides up and down too." },
+        prepare: { title: "Prepare", text: "Unsubscribe, then select every email from the same sender." },
+        archive: { title: "Archive", text: "Clear the matches on this page, or across all pages." },
+        archiveDelete: {
+          title: "Archive or delete",
+          text: "Archive clears the matches from your inbox. Delete moves them to Trash. Pick this page or all pages."
+        },
+        inbox: { title: "Move on", text: "When it's done, go back to the inbox or straight to the next email." },
+        showArchived: {
+          title: "Changed your mind?",
+          text: "Show Archived lists the archived emails from this sender, so you can move any back."
+        },
+        run: { title: "Run it all", text: "Execute Selected runs the ticked steps in order. Stop any time." },
+        minimize: {
+          title: "Tuck it away",
+          text: "Minimise the panel with this button. The \u2709 button on the right edge brings it back. Replay this tour from the extension menu."
+        }
+      }
+    },
     prompt: {
       noUnsubscribe:
         "No unsubscribe button/link found in this email. Proceed with remaining selected actions?",
@@ -132,6 +161,10 @@
   /** Popup theme setting: "auto" (default), "light" or "dark". */
   const THEME_KEY = "themePreference";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
+  /** Set once the sidebar's first-run tour has been finished or skipped. */
+  const ONBOARDING_SIDEBAR_KEY = "onboardingSidebarSeen";
+  /** Timestamp set by the popup's "Take the tour" when it has to open a new Gmail tab. */
+  const ONBOARDING_REQUEST_KEY = "onboardingTourRequested";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
     ACTION_BUTTON_IDS.UNSUBSCRIBE,
@@ -209,7 +242,7 @@
     AUTO_PROCEED_SECONDS, AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, COMMAND_ACTION_IDS,
     CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, FAST_MODE_KEY, DEFAULT_COMMAND_SHORTCUTS,
     EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS,
-    NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, SHORTCUT_HINT_TARGETS,
+    NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, ONBOARDING_REQUEST_KEY, ONBOARDING_SIDEBAR_KEY, SHORTCUT_HINT_TARGETS,
     SHOW_EXTENSION_KEY, SIGNATURE_MATCH_LOG_STYLE, STATS_DAYS_KEPT, STATS_KEY, STOP_EXECUTION_COMMAND,
     STRINGS, THEME_KEY, UNDO_ALL_OFFER_MS, UNDO_GMAIL_OFFER_MS, createEmptyNextTarget, state });
 })();

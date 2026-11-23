@@ -670,6 +670,14 @@
     applyElPosition(root, top, left);
   }
 
+  /** Opens the panel next to the toggle (no-op if already open or not mounted). */
+  function openPanel() {
+    const root = document.getElementById("gc-root");
+    const toggle = document.getElementById("gc-toggle");
+    if (!root || !toggle || !root.classList.contains("gc-hidden")) return;
+    openPanelAtToggle(root, toggle);
+  }
+
   /** Mounts sidebar. */
   function mountSidebar() {
     if (state.extensionContextInvalidated) return;
@@ -690,6 +698,7 @@
     toggle.addEventListener("click", () => {
       if (root.classList.contains("gc-hidden")) {
         openPanelAtToggle(root, toggle);
+        GC.onPanelOpened?.();
       } else {
         root.classList.add("gc-hidden");
       }
@@ -760,9 +769,10 @@
 
     setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
     syncExtensionVisibilityFromStorage();
+    GC.initOnboarding?.();
   }
 
-  Object.assign(GC, { applyTheme, askProceedConfirmation, detectGmailTheme, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,
+  Object.assign(GC, { openPanel, applyTheme, askProceedConfirmation, detectGmailTheme, findBackgroundColor, parseOpaqueColor, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, renderContextBar, reportError, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,

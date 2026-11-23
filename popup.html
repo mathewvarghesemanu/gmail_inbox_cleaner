@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-loading>
   <head>
     <meta charset="UTF-8" />
     <title>Gmail Unsubscriber Ondevice</title>
@@ -17,6 +17,19 @@
           </svg>
         </button>
       </header>
+
+      <!-- First open only (popup.js initOnboarding). -->
+      <section id="welcome" class="welcome" aria-labelledby="welcome-title" hidden>
+        <p id="welcome-title" class="welcome-title">Welcome aboard <span class="welcome-wave" aria-hidden="true">👋</span></p>
+        <p class="welcome-text">
+          Open Gmail and a quick tour shows you around. Later, the
+          <span class="welcome-chip" aria-hidden="true">✉</span> button on the right edge opens the panel.
+        </p>
+        <div class="welcome-actions">
+          <button type="button" id="welcome-open-gmail" class="welcome-primary" hidden>Open Gmail</button>
+          <button type="button" id="welcome-dismiss" class="welcome-secondary">Got it</button>
+        </div>
+      </section>
 
       <section class="stats" aria-labelledby="stats-title">
         <h2 id="stats-title" class="stats-heading">Today</h2>
@@ -49,6 +62,14 @@
         </dl>
         <p class="footnote">Stored on this device only.</p>
       </section>
+
+      <button type="button" class="tour-button" data-start-tour>
+        <span class="tour-button-icon" aria-hidden="true">🧭</span>
+        <span>
+          Take the tour
+          <small>See how the sidebar works, step by step</small>
+        </span>
+      </button>
     </main>
 
     <!-- Settings view: replaces the main view while open. -->
@@ -118,6 +139,14 @@
         <ul id="shortcut-list" class="shortcut-list"></ul>
         <p id="shortcut-empty" class="note" hidden>No shortcuts assigned.</p>
         <button type="button" id="customize-shortcuts" class="link-button">Customize shortcuts</button>
+      </div>
+
+      <h2 class="group-title">Help</h2>
+      <div class="group">
+        <div class="row">
+          <span>Sidebar tour</span>
+          <button type="button" class="text-button" data-start-tour>Take the tour</button>
+        </div>
       </div>
 
       <h2 class="group-title">Data</h2>
