@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
 }
 
 html {
@@ -302,4 +302,82 @@ body {
 
 .secondary-button:hover {
   background: #f1f3f4;
+}
+
+/* Dark theme: follows the browser / OS setting. */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #202124;
+    color: #e8eaed;
+  }
+
+  .toggle-row,
+  .danger-zone,
+  .shortcuts,
+  .stats,
+  .about {
+    background: #28292c;
+    border-color: #3c4043;
+  }
+
+  .danger-zone h2,
+  .shortcuts h2,
+  .stats h2,
+  .about h2,
+  .stats-caption,
+  .stats-note,
+  .stat-tile dt,
+  .stat-total,
+  .shortcut-empty {
+    color: #9aa0a6;
+  }
+
+  .stat-tile {
+    background: #202124;
+    border-color: #3c4043;
+  }
+
+  .stat-today {
+    color: #e8eaed;
+  }
+
+  .stat-total span {
+    color: #bdc1c6;
+  }
+
+  .shortcut-list kbd {
+    background: #303134;
+    border-color: #5f6368;
+    color: #e8eaed;
+  }
+
+  .secondary-button,
+  .stats-reset {
+    background: #303134;
+    border-color: #5f6368;
+    color: #e8eaed;
+  }
+
+  .secondary-button {
+    color: #8ab4f8;
+  }
+
+  .secondary-button:hover,
+  .stats-reset:hover {
+    background: #3c4043;
+  }
+
+  .danger-note {
+    color: #f28b82;
+  }
+
+  .disclaimer {
+    background: #2b2612;
+    border-color: #5c4a00;
+    color: #e3c77a;
+  }
+
+  .support-link {
+    color: #8ab4f8;
+  }
 }
