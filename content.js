@@ -23,14 +23,76 @@
     stopExecutionRequested: false,
     extensionContextInvalidated: false
   };
-  const LABELS = {
-    UNSUBSCRIBE_OPEN_EMAIL: "Unsubscribe Open Email",
-    SELECT_LIKE_OPEN_EMAIL: "Select All Emails Like Open Email",
-    ARCHIVE_THIS_PAGE: "Archive Listed Emails in This Page",
-    ARCHIVE_ALL_PAGES: "Archive Listed Emails in All Pages",
-    GO_TO_INBOX: "Go to Inbox",
-    GO_TO_NEXT_PAGE: "Go to Next Email"
+  /**
+   * The extension's own user-facing strings (sidebar, toasts, prompts), kept in one
+   * place so they can be translated later (e.g. via chrome.i18n). Console/debug log
+   * lines are intentionally left inline.
+   */
+  const STRINGS = {
+    actions: {
+      UNSUBSCRIBE_OPEN_EMAIL: "Unsubscribe Open Email",
+      SELECT_LIKE_OPEN_EMAIL: "Select All Emails Like Open Email",
+      ARCHIVE_THIS_PAGE: "Archive Listed Emails in This Page",
+      ARCHIVE_ALL_PAGES: "Archive Listed Emails in All Pages",
+      GO_TO_INBOX: "Go to Inbox",
+      GO_TO_NEXT_PAGE: "Go to Next Email"
+    },
+    ui: {
+      toggle: "Gmail unsubscriber",
+      title: "Gmail Unsubscriber Ondevice",
+      minimizeTitle: "Minimize",
+      minimizeAria: "Minimize panel",
+      working: "Working...",
+      sectionPrepare: "Prepare",
+      sectionArchive: "Archive",
+      sectionInbox: "Inbox",
+      selectActionAria: (label) => `Select ${label}`,
+      showArchived: "Show Archived",
+      executeSelected: "Execute Selected",
+      stopExecution: "Stop Execution",
+      proceed: "Proceed",
+      proceedCountdown: (seconds) => `Proceed (${seconds})`,
+      stop: "Stop",
+      completed: "Completed",
+      ready: "Ready.",
+      actionFallback: "Action",
+      notCached: "Not cached yet.",
+      cachedTargetReady: "Cached target ready",
+      emptyValue: "-",
+      nextTargetLabels: {
+        url: "URL",
+        sender: "Sender",
+        subject: "Subject",
+        date: "Date",
+        threadId: "Thread ID",
+        threadToken: "Thread Token",
+        pageOffset: "Page Offset",
+        listHash: "List Context"
+      }
+    },
+    toast: {
+      elapsed: (label, elapsed) => `${label}: ${elapsed} elapsed`,
+      alreadyRunning: "Already running",
+      selectActionFirst: "Select at least one action first",
+      executionStopped: "Execution stopped",
+      nextTargetCached: "Next email target cached",
+      searchComplete: "Search complete",
+      archived: "Archived",
+      archiveComplete: "Archive complete",
+      alreadyUnsubscribed: (sender) => `Already unsubscribed: ${sender}`,
+      unsubscribeComplete: "Unsubscribe complete",
+      proceedingWithoutUnsubscribe: "Proceeding without unsubscribe",
+      movedToInbox: "Moved to Inbox",
+      showingArchived: "Showing archived",
+      openedNextEmail: "Opened next email",
+      noCachedTarget: "No cached email target"
+    },
+    prompt: {
+      noUnsubscribe:
+        "No unsubscribe button/link found in this email. Proceed with remaining selected actions?"
+    }
   };
+  const LABELS = STRINGS.actions;
   const ACTION_BUTTON_IDS = {
     UNSUBSCRIBE: "gc-unsub",
     SELECT_LIKE_OPEN: "gc-like-open",
@@ -135,7 +197,9 @@
     masterCheckbox: [
       "span.T-Jo.J-J5-Ji.T-Jo-auq.T-Jo-iAfbIe[role='checkbox']",
       "span.T-Jo.J-J5-Ji.T-Jo-auq[role='checkbox']",
-      "span.T-Jo.J-J5-Ji[role='checkbox']"
+      "span.T-Jo.J-J5-Ji[role='checkbox']",
+      // Locale/class independent: the only checkbox inside the mailbox toolbar.
+      "div[gh='mtb'] [role='checkbox']"
     ],
     masterCheckboxInner: ".T-Jo-auh[role='presentation']",
     menu: ".J-M[role='menu']",
@@ -146,6 +210,14 @@
 
     // Archive
     toolbarControls: "div[role='button'], button, span[role='button']",
+    /** Gmail action id for Archive on toolbar buttons (locale independent). */
+    archiveAct: "7",
+
+    // Pagination (locale-independent fallbacks used when "Older" text is not found)
+    /** Pager group next to the "1–50 of N" counter; its last button is Older/next. */
+    pagerButtons: ".Di [role='button']",
+    /** Older/next-page button class (class-only hook). */
+    olderButtonClass: "div.amJ[role='button']",
 
     // Unsubscribe
     unsubscribeCandidates: "button, [role='button'], [role='link'], a, span, div",
@@ -156,7 +228,53 @@
     unsubscribeLinkClass: "Ca",
     dialogOkButton: "button[data-mdc-dialog-action='ok'], [role='button'][data-mdc-dialog-action='ok']",
     dialogButtons: "button, [role='button'], [role='link'], a, span",
+    /** Material dialog dismiss buttons (locale independent). */
+    dialogDismissButton: "[data-mdc-dialog-action='cancel'], [data-mdc-dialog-action='close']",
     noticeNodes: "div, span, p"
+  };
+
+  /**
+   * English Gmail UI text used for matching aria-label / data-tooltip / text content.
+   *
+   * KNOWN LOCALE LIMITATIONS: Gmail localizes aria-labels, tooltips and visible text
+   * to the user's UI language, so these strings only match English Gmail. Each use
+   * site tries the English text first (unchanged behavior) and then a
+   * locale-independent fallback where one is known:
+   *   - Select dropdown: structural (button that wraps the master checkbox).
+   *   - "All" menu item: Gmail's selector="all" attribute (already locale independent).
+   *   - Archive: act="7" attribute; keyboard "e" as last resort.
+   *   - Older / next page: pager group structure (.Di) and .amJ class.
+   *   - Unsubscribe link: Gmail's ".Ca" header link class.
+   *   - Unsubscribe dialogs: data-mdc-dialog-action attributes.
+   *   - Search box: input[name='q'] (aria-label "Search mail" is only a fallback).
+   * Still English-only (no reliable locale-independent hook known):
+   *   - "Select all conversations that match this search" link (includeAllInSearch).
+   *   - "Already unsubscribed" notice detection (findAlreadyUnsubscribedNotice).
+   *   - Date parsing uses English month names (parseDateSignature); thread/legacy id
+   *     matching does not depend on it, so next-email matching degrades gracefully.
+   */
+  const GMAIL_TEXT = {
+    select: "select",
+    all: "all",
+    archive: "archive",
+    olderSignals: ["older", "next page"],
+    nextExact: "next",
+    unsubscribe: "unsubscribe",
+    cancel: "cancel",
+    confirmSignals: ["unsubscribe", "confirm", "ok"],
+    dismissSignals: ["done", "ok", "got it", "close", "dismiss", "cancel"],
+    alreadyUnsubscribedKeywords: [
+      "unsubscribed",
+      "you are unsubscribed",
+      "no longer receive",
+      "won't get messages",
+      "will not get messages",
+      "won\u2019t get messages"
+    ],
+    selectAllInSearch: [
+      /Select all conversations that match this search/i,
+      /all conversations that match this search/i
+    ]
   };
 
   /** Handles sleep. */
@@ -412,15 +530,16 @@
     if (!goNextChecked) return;
 
     if (!state.cachedNextEmailUrl) {
-      summaryEl.textContent = "Not cached yet.";
-      if (urlEl) urlEl.textContent = "Not cached yet.";
-      if (senderEl) senderEl.textContent = "-";
-      if (subjectEl) subjectEl.textContent = "-";
-      if (dateEl) dateEl.textContent = "-";
-      if (threadIdEl) threadIdEl.textContent = "-";
-      if (threadTokenEl) threadTokenEl.textContent = "-";
+      const empty = STRINGS.ui.emptyValue;
+      summaryEl.textContent = STRINGS.ui.notCached;
+      if (urlEl) urlEl.textContent = STRINGS.ui.notCached;
+      if (senderEl) senderEl.textContent = empty;
+      if (subjectEl) subjectEl.textContent = empty;
+      if (dateEl) dateEl.textContent = empty;
+      if (threadIdEl) threadIdEl.textContent = empty;
+      if (threadTokenEl) threadTokenEl.textContent = empty;
       if (pageOffsetEl) pageOffsetEl.textContent = "0";
-      if (listHashEl) listHashEl.textContent = "-";
+      if (listHashEl) listHashEl.textContent = empty;
       return;
     }
 
@@ -429,15 +548,15 @@
       state.cachedNextEmailSubject || "",
       state.cachedNextEmailDate || ""
     ].filter(Boolean);
-    summaryEl.textContent = summaryParts.join(" | ") || "Cached target ready";
+    summaryEl.textContent = summaryParts.join(" | ") || STRINGS.ui.cachedTargetReady;
     if (urlEl) urlEl.textContent = state.cachedNextEmailUrl;
-    if (senderEl) senderEl.textContent = state.cachedNextEmailSender || "-";
-    if (subjectEl) subjectEl.textContent = state.cachedNextEmailSubject || "-";
-    if (dateEl) dateEl.textContent = state.cachedNextEmailDate || "-";
-    if (threadIdEl) threadIdEl.textContent = state.cachedNextEmailThreadId || "-";
-    if (threadTokenEl) threadTokenEl.textContent = state.cachedNextEmailThreadToken || "-";
+    if (senderEl) senderEl.textContent = state.cachedNextEmailSender || STRINGS.ui.emptyValue;
+    if (subjectEl) subjectEl.textContent = state.cachedNextEmailSubject || STRINGS.ui.emptyValue;
+    if (dateEl) dateEl.textContent = state.cachedNextEmailDate || STRINGS.ui.emptyValue;
+    if (threadIdEl) threadIdEl.textContent = state.cachedNextEmailThreadId || STRINGS.ui.emptyValue;
+    if (threadTokenEl) threadTokenEl.textContent = state.cachedNextEmailThreadToken || STRINGS.ui.emptyValue;
     if (pageOffsetEl) pageOffsetEl.textContent = String(state.cachedNextEmailPageOffset || 0);
-    if (listHashEl) listHashEl.textContent = state.cachedNextEmailListHash || "-";
+    if (listHashEl) listHashEl.textContent = state.cachedNextEmailListHash || STRINGS.ui.emptyValue;
   }
 
   /** Persists cached next email target. */
@@ -521,7 +640,7 @@
   }
 
   /** Handles flash success. */
-  function flashSuccess(message = "Completed") {
+  function flashSuccess(message = STRINGS.ui.completed) {
     const badge = document.getElementById("gc-success");
     if (!badge) return;
 
@@ -585,7 +704,7 @@
       await runner();
     } finally {
       const elapsed = performance.now() - start;
-      showToast(`${label}: ${formatElapsedMs(elapsed)} elapsed`);
+      showToast(STRINGS.toast.elapsed(label, formatElapsedMs(elapsed)));
     }
   }
 
@@ -610,14 +729,14 @@
       clearInterval(proceedAutoCountdownTimer);
       proceedAutoCountdownTimer = null;
     }
-    setProceedButtonLabel("Proceed");
+    setProceedButtonLabel(STRINGS.ui.proceed);
   }
 
   /** Starts auto proceed countdown. */
   function startProceedAutoCountdown(seconds = AUTO_PROCEED_SECONDS) {
     stopProceedAutoCountdown();
     let remainingSeconds = Math.max(1, Number.parseInt(String(seconds ?? ""), 10) || AUTO_PROCEED_SECONDS);
-    setProceedButtonLabel(`Proceed (${remainingSeconds})`);
+    setProceedButtonLabel(STRINGS.ui.proceedCountdown(remainingSeconds));
     proceedAutoCountdownTimer = setInterval(() => {
       remainingSeconds -= 1;
       if (remainingSeconds <= 0) {
@@ -627,7 +746,7 @@
         }
         return;
       }
-      setProceedButtonLabel(`Proceed (${remainingSeconds})`);
+      setProceedButtonLabel(STRINGS.ui.proceedCountdown(remainingSeconds));
     }, 1000);
   }
 
@@ -797,7 +916,7 @@
 
   /** Runs Execute Selected with the shared toast wrapper. */
   function triggerExecuteSelected() {
-    void runWithElapsedToast("Execute Selected", async () => {
+    void runWithElapsedToast(STRINGS.ui.executeSelected, async () => {
       await executeSelectedActions();
     });
   }
@@ -811,11 +930,11 @@
     if (root && root.style.display === "none") return;
 
     if (state.working || state.batchExecuting) {
-      showToast("Already running");
+      showToast(STRINGS.toast.alreadyRunning);
       return;
     }
     if (!getSelectedActionIds().length) {
-      showToast("Select at least one action first");
+      showToast(STRINGS.toast.selectActionFirst);
       return;
     }
     triggerExecuteSelected();
@@ -912,7 +1031,7 @@
       }
       if (shouldStopExecution()) {
         setLog("Execution stopped.");
-        showToast("Execution stopped");
+        showToast(STRINGS.toast.executionStopped);
       }
     } finally {
       clearCachedNextEmailTarget();
@@ -1337,11 +1456,15 @@
 
   /** Finds select button. */
   function findSelectButton(toolbar) {
-    return [...toolbar.querySelectorAll(SELECTORS.buttons)].find((el) => {
+    const byText = [...toolbar.querySelectorAll(SELECTORS.buttons)].find((el) => {
       const aria = (el.getAttribute("aria-label") || "").toLowerCase();
       const tooltip = (el.getAttribute("data-tooltip") || "").toLowerCase();
-      return isVisible(el) && (aria === "select" || tooltip === "select");
+      return isVisible(el) && (aria === GMAIL_TEXT.select || tooltip === GMAIL_TEXT.select);
     });
+    if (byText) return byText;
+    // Locale-independent fallback: the Select dropdown is the button wrapping the master checkbox.
+    const wrapper = findMasterCheckbox(toolbar)?.closest("[role='button']");
+    return wrapper && isVisible(wrapper) ? wrapper : undefined;
   }
 
   /** Finds all menu item. */
@@ -1352,13 +1475,13 @@
         const selector = (el.getAttribute("selector") || "").toLowerCase();
         const text = (el.textContent || "").trim().toLowerCase();
         const aria = (el.getAttribute("aria-label") || "").trim().toLowerCase();
-        return selector === "all" || text === "all" || aria === "all";
+        return selector === GMAIL_TEXT.all || text === GMAIL_TEXT.all || aria === GMAIL_TEXT.all;
       });
     if (direct) return direct;
 
     const nestedLabel = [...document.querySelectorAll(SELECTORS.menuItemLabelInMenu)].find((el) => {
       if (!isVisible(el)) return false;
-      return (el.textContent || "").trim().toLowerCase() === "all";
+      return (el.textContent || "").trim().toLowerCase() === GMAIL_TEXT.all;
     });
     if (nestedLabel) return nestedLabel.closest(SELECTORS.menuItem) || nestedLabel;
 
@@ -1487,8 +1610,7 @@
 
     const selectAllSearchLink = includeAllInSearch
       ? [...document.querySelectorAll(SELECTORS.anchors)].find((a) =>
-      /Select all conversations that match this search/i.test(a.textContent || "") ||
-      /all conversations that match this search/i.test(a.textContent || "")
+      GMAIL_TEXT.selectAllInSearch.some((pattern) => pattern.test(a.textContent || ""))
     )
       : null;
 
@@ -1542,10 +1664,10 @@
         const text = (el.textContent || "").trim().toLowerCase();
         const act = (el.getAttribute("act") || "").trim();
         return (
-          label.includes("archive") ||
-          tooltip.includes("archive") ||
-          text === "archive" ||
-          act === "7"
+          label.includes(GMAIL_TEXT.archive) ||
+          tooltip.includes(GMAIL_TEXT.archive) ||
+          text === GMAIL_TEXT.archive ||
+          act === SELECTORS.archiveAct
         );
       }
     );
@@ -1577,7 +1699,7 @@
       ...document.querySelectorAll(SELECTORS.buttons)
     ];
 
-    return controls.find((el) => {
+    const byText = controls.find((el) => {
       if (!isVisible(el)) return false;
       if (isDisabledControl(el)) return false;
       const aria = (el.getAttribute("aria-label") || "").toLowerCase();
@@ -1587,15 +1709,25 @@
 
       // Gmail usually labels this as "Older" (next page), but keep a next-page fallback.
       const looksLikeNext =
-        signal.includes("older") ||
-        signal.includes("next page") ||
-        signal === "next";
+        GMAIL_TEXT.olderSignals.some((needle) => signal.includes(needle)) ||
+        signal === GMAIL_TEXT.nextExact;
       if (!looksLikeNext) return false;
 
       // Avoid the tiny calendar/date picker arrows.
       if (el.closest(SELECTORS.dialog)) return false;
       return true;
-    }) || null;
+    });
+    if (byText) return byText;
+
+    // Locale-independent fallbacks (non-English Gmail): Older button class, then the
+    // last button of the pager group ("Newer", "Older").
+    /** Checks whether usable pager control. */
+    const usable = (el) => !!el && isVisible(el) && !isDisabledControl(el) && !el.closest(SELECTORS.dialog);
+    const byClass = [...document.querySelectorAll(SELECTORS.olderButtonClass)].find(usable);
+    if (byClass) return byClass;
+    const pagerButtons = [...document.querySelectorAll(SELECTORS.pagerButtons)].filter((el) => isVisible(el));
+    const lastPager = pagerButtons[pagerButtons.length - 1];
+    return pagerButtons.length >= 2 && usable(lastPager) ? lastPager : null;
   }
 
   /** Returns first row fingerprint. */
@@ -2408,7 +2540,7 @@
         .join(" | ");
       setLog(`Next email target cached: ${preview}`);
       announceEmailTargetStatus("Email target after inbox scan");
-      showToast("Next email target cached");
+      showToast(STRINGS.toast.nextTargetCached);
       return true;
     } finally {
       if (priorUrl && normalizeComparableUrl(location.href) !== normalizeComparableUrl(priorUrl)) {
@@ -2469,14 +2601,7 @@
     const quotedSender = `"${normalizedSender}"`;
     const main = document.querySelector(SELECTORS.main) || document;
     const nodes = [...main.querySelectorAll(SELECTORS.noticeNodes)].filter((el) => isVisible(el));
-    const keywords = [
-      "unsubscribed",
-      "you are unsubscribed",
-      "no longer receive",
-      "won't get messages",
-      "will not get messages",
-      "won’t get messages"
-    ];
+    const keywords = GMAIL_TEXT.alreadyUnsubscribedKeywords;
 
     return nodes.find((el) => {
       const rawText = (el.textContent || "").trim().toLowerCase();
@@ -2500,7 +2625,7 @@
     const scored = candidates
       .map((el) => {
         const signal = getUnsubscribeSignal(el);
-        if (!signal.includes("unsubscribe")) return null;
+        if (!signal.includes(GMAIL_TEXT.unsubscribe)) return null;
         if (el.closest(SELECTORS.blockquote)) return null;
         if (el.closest(SELECTORS.anchorsWithHref) && !el.matches(SELECTORS.unsubscribeActionable)) return null;
 
@@ -2508,16 +2633,21 @@
         if (el.matches(SELECTORS.unsubscribeButtonLike)) score += 8;
         if (el.matches(SELECTORS.roleLink)) score += 9;
         if (el.classList.contains(SELECTORS.unsubscribeLinkClass)) score += 10;
-        if ((el.getAttribute("aria-label") || "").toLowerCase().includes("unsubscribe")) score += 6;
-        if ((el.getAttribute("data-tooltip") || "").toLowerCase().includes("unsubscribe")) score += 5;
-        if ((el.textContent || "").trim().toLowerCase().includes("unsubscribe")) score += 3;
+        if ((el.getAttribute("aria-label") || "").toLowerCase().includes(GMAIL_TEXT.unsubscribe)) score += 6;
+        if ((el.getAttribute("data-tooltip") || "").toLowerCase().includes(GMAIL_TEXT.unsubscribe)) score += 5;
+        if ((el.textContent || "").trim().toLowerCase().includes(GMAIL_TEXT.unsubscribe)) score += 3;
         if (el.closest(SELECTORS.main)) score += 1;
         return { el, score };
       })
       .filter(Boolean)
       .sort((a, b) => b.score - a.score);
 
-    return scored[0]?.el || null;
+    if (scored[0]?.el) return scored[0].el;
+
+    // Locale-independent fallback (non-English Gmail): Gmail's header unsubscribe link class.
+    return [...main.getElementsByClassName(SELECTORS.unsubscribeLinkClass)].find(
+      (el) => isVisible(el) && !el.closest(SELECTORS.blockquote)
+    ) || null;
   }
 
   /** Finds unsubscribe confirm button. */
@@ -2533,8 +2663,8 @@
       const buttons = [...dialog.querySelectorAll(SELECTORS.dialogButtons)];
       const match = buttons.find((btn) => {
         const signal = getUnsubscribeSignal(btn);
-        if (signal.includes("cancel")) return false;
-        return signal.includes("unsubscribe") || signal.includes("confirm") || signal.includes("ok");
+        if (signal.includes(GMAIL_TEXT.cancel)) return false;
+        return GMAIL_TEXT.confirmSignals.some((needle) => signal.includes(needle));
       });
       if (match) return match;
     }
@@ -2553,17 +2683,14 @@
       const match = buttons.find((btn) => {
         if (!isVisible(btn)) return false;
         const signal = getUnsubscribeSignal(btn);
-        if (!signal || signal.includes("unsubscribe")) return false;
-        return (
-          signal.includes("done") ||
-          signal.includes("ok") ||
-          signal.includes("got it") ||
-          signal.includes("close") ||
-          signal.includes("dismiss") ||
-          signal.includes("cancel")
-        );
+        if (!signal || signal.includes(GMAIL_TEXT.unsubscribe)) return false;
+        return GMAIL_TEXT.dismissSignals.some((needle) => signal.includes(needle));
       });
       if (match) return match;
+
+      // Locale-independent fallback: Material dialog cancel/close action.
+      const mdcDismiss = [...dialog.querySelectorAll(SELECTORS.dialogDismissButton)].find((btn) => isVisible(btn));
+      if (mdcDismiss) return mdcDismiss;
     }
 
     return null;
@@ -2697,7 +2824,7 @@
       state.lockedSender = normalizeEmail(sender);
       state.lockedQuery = normalizeQuery(query);
       setLog("Search ready.");
-      showToast("Search complete");
+      showToast(STRINGS.toast.searchComplete);
     } catch (error) {
       setLog(error.message || "Could not select similar emails.");
     } finally {
@@ -2728,8 +2855,8 @@
       setLog(`${state.selectedConversationsText} Archiving current page...`);
       await archiveSelected();
       setLog("Archive action sent for current page.");
-      flashSuccess("Archived");
-      showToast("Archive complete");
+      flashSuccess(STRINGS.toast.archived);
+      showToast(STRINGS.toast.archiveComplete);
     } catch (error) {
       setLog(error.message || "Archive failed.");
     } finally {
@@ -2756,7 +2883,7 @@
       while (cycles < maxCycles) {
         if (shouldStopExecution()) {
           setLog(`Stopped after ${cycles} cycle(s).`);
-          showToast("Execution stopped");
+          showToast(STRINGS.toast.executionStopped);
           return;
         }
         validateLockedArchiveContext();
@@ -2784,8 +2911,8 @@
             await sleep(800);
           } else {
             setLog(`Stopped after ${cycles} cycles: list did not change after retries.`);
-            flashSuccess("Archived");
-            showToast("Archive complete");
+            flashSuccess(STRINGS.toast.archived);
+            showToast(STRINGS.toast.archiveComplete);
             return;
           }
         } else {
@@ -2798,8 +2925,8 @@
         return;
       }
       setLog(`Archive loop completed after ${cycles} cycle(s).`);
-      flashSuccess("Archived");
-      showToast("Archive complete");
+      flashSuccess(STRINGS.toast.archived);
+      showToast(STRINGS.toast.archiveComplete);
     } catch (error) {
       setLog(error.message || "Recursive archive failed.");
     } finally {
@@ -2817,29 +2944,27 @@
       const alreadyUnsubscribedNotice = findAlreadyUnsubscribedNotice(sender);
       if (alreadyUnsubscribedNotice) {
         setLog(`Already unsubscribed from ${sender}.`);
-        showToast(`Already unsubscribed: ${sender}`);
+        showToast(STRINGS.toast.alreadyUnsubscribed(sender));
         return;
       }
       const result = await clickUnsubscribeInOpenEmail();
       await dismissUnsubscribeDialogs();
       setLog(result);
-      showToast("Unsubscribe complete");
+      showToast(STRINGS.toast.unsubscribeComplete);
     } catch (error) {
       const message = error.message || "Unsubscribe failed.";
       if (message.includes("No unsubscribe button/link found")) {
-        const proceed = await askProceedConfirmation(
-          "No unsubscribe button/link found in this email. Proceed with remaining selected actions?"
-        );
+        const proceed = await askProceedConfirmation(STRINGS.prompt.noUnsubscribe);
         if (proceed) {
           setLog("No unsubscribe button found. Proceeding to next action.");
-          showToast("Proceeding without unsubscribe");
+          showToast(STRINGS.toast.proceedingWithoutUnsubscribe);
           return;
         }
 
         setLog("Execution stopped by user (unsubscribe confirmation).");
         if (state.batchExecuting) {
           state.stopExecutionRequested = true;
-          showToast("Execution stopped");
+          showToast(STRINGS.toast.executionStopped);
         }
         return;
       }
@@ -2862,10 +2987,10 @@
       state.selectedConversationsText = "";
       clearCachedNextEmailTarget();
       setLog("Moved to Inbox. Search context reset.");
-      showToast("Moved to Inbox");
+      showToast(STRINGS.toast.movedToInbox);
     } catch (_) {
       setLog("Moved to Inbox.");
-      showToast("Moved to Inbox");
+      showToast(STRINGS.toast.movedToInbox);
     } finally {
       if (manageWorking) setWorking(false);
     }
@@ -2877,7 +3002,7 @@
     try {
       await runSearchQuery("-in:inbox -in:sent -in:drafts -in:spam -in:trash");
       setLog("Showing archived emails.");
-      showToast("Showing archived");
+      showToast(STRINGS.toast.showingArchived);
     } catch (err) {
       setLog("Could not run archived search: " + err.message);
     } finally {
@@ -2999,7 +3124,7 @@
       setLog("Load Next Email [3/8]: Checking stop-request flag...");
       if (shouldStopExecution()) {
         setLog("Load Next Email [3/8]: Stop requested. Aborting.");
-        showToast("Execution stopped");
+        showToast(STRINGS.toast.executionStopped);
         return;
       }
       setLog("Load Next Email [4/8]: Validating target URL...");
@@ -3010,12 +3135,12 @@
           robustClick(olderBtn);
           await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
           setLog("Load Next Email: Opened next email via Older button.");
-          showToast("Opened next email");
+          showToast(STRINGS.toast.openedNextEmail);
           return;
         }
         setLog("Load Next Email [4/8]: No cached target and no Older button found.");
         announceEmailTargetStatus("Email target before open");
-        showToast("No cached email target");
+        showToast(STRINGS.toast.noCachedTarget);
         return;
       }
 
@@ -3030,7 +3155,7 @@
         stopTargetLogTimer();
         setLog("Load Next Email [7/8]: Opened via list-row context.");
         setLog("Load Next Email [8/8]: Completed. j/k navigation should remain in context.");
-        showToast("Opened next email");
+        showToast(STRINGS.toast.openedNextEmail);
         return;
       }
       setLog("Load Next Email [7/8]: List-row open failed. Falling back to direct URL...");
@@ -3042,7 +3167,7 @@
       await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
       stopTargetLogTimer();
       setLog("Load Next Email: Completed via URL fallback.");
-      showToast("Opened next email");
+      showToast(STRINGS.toast.openedNextEmail);
     } catch (error) {
       stopTargetLogTimer();
       setLog(`Load Next Email failed: ${error.message || "Go to next page failed."}`);
@@ -3173,7 +3298,7 @@
 
     Object.values(ACTION_BUTTON_IDS).forEach((buttonId) => {
       document.getElementById(buttonId)?.addEventListener("click", () => {
-        const label = document.getElementById(buttonId)?.textContent?.trim() || "Action";
+        const label = document.getElementById(buttonId)?.textContent?.trim() || STRINGS.ui.actionFallback;
         void runWithElapsedToast(label, async () => {
           await runActionByButtonId(buttonId);
         });
@@ -3181,7 +3306,7 @@
     });
 
     document.getElementById("gc-show-archived")?.addEventListener("click", () => {
-      void runWithElapsedToast("Show Archived", async () => {
+      void runWithElapsedToast(STRINGS.ui.showArchived, async () => {
         await actionShowArchived();
       });
     });
@@ -3197,7 +3322,7 @@
       triggerExecuteSelected();
     });
     document.getElementById("gc-stop-execution")?.addEventListener("click", () => {
-      void runWithElapsedToast("Stop Execution", async () => {
+      void runWithElapsedToast(STRINGS.ui.stopExecution, async () => {
         requestStopExecution();
       });
     });
