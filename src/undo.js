@@ -56,6 +56,14 @@
     document.getElementById("gc-undo")?.classList.remove("gc-undo-visible");
   }
 
+  /**
+   * Hides the "Undo archive / delete" offer, which clicks Gmail's own Undo and is
+   * meaningless once Gmail navigates away. "Undo all" stays: it names its sender.
+   */
+  function hideGmailUndoOffer() {
+    if (undoOfferPayload?.kind === "gmail") hideUndoOffer();
+  }
+
   /** Shows an undo offer (message + button) for durationMs. */
   function showUndoOffer(payload) {
     const box = document.getElementById("gc-undo");
@@ -365,6 +373,6 @@
 
   Object.assign(GC, { actionUndoArchiveAll, confirmArchiveAllPagesWithCount, describeArchiveCount,
     findGmailUndoLink, findMoveToInboxControl, findResultRangeElement, handleUndoOfferClick, hideUndoOffer,
-    installUndoOfferListeners, isOwnUiElement, moveSelectedToInbox, offerGmailUndo, offerUndoAllArchive,
+    hideGmailUndoOffer, installUndoOfferListeners, isOwnUiElement, moveSelectedToInbox, offerGmailUndo, offerUndoAllArchive,
     readGmailResultCount, showUndoOffer, undoSinglePageArchive, waitForGmailUndoLink });
 })();

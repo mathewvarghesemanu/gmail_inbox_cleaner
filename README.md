@@ -45,9 +45,11 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 - `Archive Listed Emails in All Pages` (sidebar: **Archive → All pages**) — shows a dry-run count ("About to archive ~1,234 conversations from ...") before archiving, then offers `Undo all`, which moves that sender's archived mail (`from:<sender> -in:inbox`) back to Inbox after confirmation
 - `Go to Inbox`
 - `Go to Next Email`
-- `Show Archived` — searches for archived emails from the current sender
+- `Show Archived` — searches for archived emails from the open email's sender (or the sender selected with `Select All Emails Like Open Email`); with neither, it shows all archived mail
 - `Execute Selected` — also bound to a keyboard shortcut (`Ctrl+Shift+E`, `Command+Shift+E` on macOS); see Keyboard shortcuts below
 - `Stop Execution` — replaces `Execute Selected` while a batch is running
+- If a step fails, `Execute Selected` stops and skips the remaining steps (an `Unsubscribe` failure does not stop it)
+- Archive and Delete are locked to the sender picked by `Select All Emails Like Open Email`. Opening an email from another sender drops the lock, and Archive / Delete refuse to run while an email from a different sender is open
 - Detected sender shown at the top of the sidebar, so you can check the target before running anything
 - Live progress while running (`Step 2/4: ...`, `Page 3 · 150 archived`) and a one-line preview of the next email
 - One status area for prompts, messages (info / success / warning / error) and undo offers; failures are shown, not only logged
@@ -123,6 +125,7 @@ npm run format     # prettier --write (existing sources are excluded via .pretti
 ```
 
 - `tests/matching.test.js` covers the pure sender/subject/date matching helpers.
+- `tests/batch-safety.test.js` covers the sender lock, stopping a batch after a failed step, next-email preparation, undo offers after navigating and the Show Archived search.
 - `tests/sidebar-ui.test.js` covers sidebar behavior: option toggling, the sender bar, progress, the status area, Execute/Stop, confirmation keyboard handling and theme detection.
 - `tests/smoke*.test.js` load the content scripts listed in `manifest.json` into hand-built Gmail DOM fixtures (`tests/fixtures/`) with `chrome.*` stubbed, and check that the sidebar mounts and the open-email sender is detected.
 - `tests/load-content.js` is the loader. It defines `globalThis.__GC_TEST__` before the scripts run, and the content script's test hook puts its internals on that object (this does nothing in the real extension). When `src/matching.js` exists, the pure helpers are loaded from it with `require` instead.

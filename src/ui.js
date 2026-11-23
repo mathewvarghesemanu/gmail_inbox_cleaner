@@ -4,7 +4,7 @@
   if (!GC || GC.skipLoad) return;
 
   const { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, AUTO_PROCEED_SECONDS,
-    AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS,
+    AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS, clearSenderLock, normalizeEmail,
     FAST_MODE_KEY, SHOW_EXTENSION_KEY, STRINGS, THEME_KEY, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
     applyElPosition, installUndoOfferListeners, makeDraggable,
     renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
@@ -21,6 +21,8 @@
 
   /** Shows an error in the status area (and the console log). */
   function reportError(message) {
+    // Execute Selected checks this after each step, so a failed step stops the batch.
+    if (state.batchExecuting && !state.batchStepError) state.batchStepError = message || "Step failed";
     setLog(message);
     showToast(message, { type: "error", durationMs: 5000 });
   }
@@ -325,7 +327,12 @@
   function refreshOpenEmailState() {
     applyTheme();
     if (state.working) return;
-    findOpenEmailSender();
+    const openSender = normalizeEmail(findOpenEmailSender());
+    // A different sender's email is open: forget the old lock so Archive / Delete
+    // cannot act on the previous sender.
+    if (openSender && state.lockedSender && openSender !== normalizeEmail(state.lockedSender)) {
+      clearSenderLock();
+    }
     refreshControlStates();
   }
 
