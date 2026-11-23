@@ -5,7 +5,7 @@ const globals = require("globals");
 
 module.exports = [
   {
-    ignores: ["node_modules/**", "release/**", "dist/**", "build/**", "coverage/**"]
+    ignores: [".claude/**", "node_modules/**", "release/**", "dist/**", "build/**", "coverage/**"]
   },
   js.configs.recommended,
   {
