@@ -17,3 +17,6 @@ build/
 # Environment
 .env
 .env.*
+
+# Release zips (built by scripts/package.sh, attached to GitHub Releases)
+release/
