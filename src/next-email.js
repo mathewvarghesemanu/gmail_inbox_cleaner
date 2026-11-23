@@ -11,7 +11,7 @@
     goToNextResultsPage, navigateWithinGmail, normalizeComparableUrl, normalizeEmail,
     normalizeFingerprintText, normalizeQuery, normalizeSubjectForMatch,
     parseDateSignature, robustClick, safeStorageGet, safeStorageSet, scoreRowAgainstEmailSignature,
-    senderSignalMatchesExpected, setLog, sleep, state, waitForSelector, waitForThreadRows } = GC;
+    senderSignalMatchesExpected, setLog, state, waitForSelector, waitForThreadRows } = GC;
 
   /**
    * Pages scanned when finding the next email. Discovery uses the list the email
@@ -147,7 +147,7 @@
     if (!isInboxListView) {
       window.location.hash = "#inbox";
       await waitForThreadRows(12000);
-      await sleep(250);
+      await GC.settle(250);
       return;
     }
     await waitForThreadRows(5000);
@@ -199,7 +199,7 @@
         navigateWithinGmail(originList);
       }
       await waitForThreadRows(12000);
-      await sleep(200);
+      await GC.settle(200);
       return;
     }
     if (canUseLockedSearchForDiscovery(expectedSender)) {
@@ -431,7 +431,7 @@
         setLog("Returning to current open email...");
         navigateWithinGmail(priorUrl);
         await waitForSelector(SELECTORS.openThreadHeadingInMain, 12000);
-        await sleep(180);
+        await GC.settle(180);
         setLog("Returned to current email. Continuing flow...");
       }
     }
@@ -522,7 +522,7 @@
     if (listHash) {
       navigateWithinGmail(listHash);
       await waitForThreadRows(12000);
-      await sleep(200);
+      await GC.settle(200);
     } else {
       await navigateToDiscoveryListContext(state.nextTarget.sender || "");
     }

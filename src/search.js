@@ -4,7 +4,7 @@
   if (!GC || GC.skipLoad) return;
 
   const { LABELS, SELECTORS, STRINGS, extractSenderFromQuery, findOpenEmailSender, firstAttr, getThreadRows,
-    isVisible, normalizeEmail, normalizeQuery, queryFirst, senderSignalMatchesExpected, setLog, sleep, state,
+    isVisible, normalizeEmail, normalizeQuery, queryFirst, senderSignalMatchesExpected, setLog, state,
     waitFor, waitForThreadRows } = GC;
 
   /** Returns current search input. */
@@ -189,7 +189,7 @@
     }
 
     await waitForThreadRows(12000);
-    await sleep(150);
+    await GC.settle(150);
     return query;
   }
 

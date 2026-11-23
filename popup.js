@@ -2,6 +2,7 @@ const SHOW_EXTENSION_KEY = "showExtensionEnabled";
 /** Mirrors src/constants.js. */
 const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
 const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
+const FAST_MODE_KEY = "fastModeEnabled";
 
 /** Reads keys from chrome.storage.local, resolving {} on error. */
 function storageGet(keys) {
@@ -151,15 +152,35 @@ function initShortcuts() {
   });
 }
 
+/**
+ * Wires the Fast mode toggle; the caution shows only while it is on.
+ * The sidebar picks up changes live via chrome.storage.onChanged.
+ */
+function initFastMode(stored) {
+  const checkbox = document.getElementById("fast-mode");
+  const caution = document.getElementById("fast-mode-caution");
+  if (!checkbox) return;
+  const render = () => {
+    if (caution) caution.hidden = !checkbox.checked;
+  };
+  checkbox.checked = stored[FAST_MODE_KEY] === true;
+  render();
+  checkbox.addEventListener("change", () => {
+    chrome.storage.local.set({ [FAST_MODE_KEY]: checkbox.checked });
+    render();
+  });
+}
+
 /** Handles init. */
 async function init() {
   initStats();
   initShortcuts();
-  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY]);
+  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY, FAST_MODE_KEY]);
 
   const checkbox = document.getElementById("show-extension");
   if (checkbox) initShowExtension(checkbox, stored);
 
+  initFastMode(stored);
   initDeleteSettings(stored);
 }
 

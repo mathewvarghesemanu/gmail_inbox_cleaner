@@ -14,6 +14,22 @@
         <span>Show the extension</span>
       </label>
 
+      <section class="speed" aria-labelledby="speed-title">
+        <h2 id="speed-title">Speed</h2>
+        <label class="toggle-row" for="fast-mode">
+          <input id="fast-mode" type="checkbox" aria-describedby="fast-mode-help fast-mode-caution" />
+          <span>Fast mode (skip waiting)</span>
+        </label>
+        <p id="fast-mode-help" class="setting-help">
+          Skips the pauses between steps and the countdown before prompts that proceed on their own.
+        </p>
+        <p id="fast-mode-caution" class="caution" role="alert" hidden>
+          <strong>Caution:</strong> actions will happen very fast, back to back, with little chance to
+          stop them. Check the selected options and the sender before you run. Delete still asks first.
+          If steps start failing on a slow connection, turn Fast mode off.
+        </p>
+      </section>
+
       <section class="danger-zone" aria-labelledby="delete-title">
         <h2 id="delete-title">Delete</h2>
         <label class="toggle-row" for="delete-enabled">

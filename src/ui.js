@@ -5,7 +5,7 @@
 
   const { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, AUTO_PROCEED_SECONDS,
     AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS,
-    SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
+    FAST_MODE_KEY, SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
     applyElPosition, installUndoOfferListeners, makeDraggable,
     renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
 
@@ -160,10 +160,19 @@
       resolveProceedConfirmation(false);
     }
 
+    const autoProceed = !!options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT);
+    // Fast mode: prompts that would auto-proceed after a countdown proceed at once.
+    // Prompts that never auto-proceed (e.g. Delete) are always shown.
+    if (autoProceed && state.fastMode) {
+      setLog(`Fast mode: auto-proceeding. ${message}`);
+      showToast(STRINGS.toast.fastModeProceeded);
+      return Promise.resolve(true);
+    }
+
     messageEl.textContent = message;
     box.classList.toggle("gc-confirm-danger", !!options.proceedLabel);
     box.classList.add("gc-confirm-visible");
-    if (options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
+    if (autoProceed) {
       startProceedAutoCountdown(AUTO_PROCEED_SECONDS);
     } else {
       stopProceedAutoCountdown();
@@ -389,6 +398,17 @@
     return text || fallback;
   }
 
+  /** Applies the Fast mode setting and shows / hides the header badge. */
+  function setFastMode(enabled) {
+    state.fastMode = !!enabled;
+    document.getElementById("gc-fast-badge")?.classList.toggle("gc-hidden", !state.fastMode);
+  }
+
+  /** Reads the Fast mode setting from storage. */
+  function syncFastModeFromStorage() {
+    safeStorageGet([FAST_MODE_KEY], (result) => setFastMode(result?.[FAST_MODE_KEY] === true));
+  }
+
   /** Sets extension visibility. */
   function setExtensionVisibility(enabled) {
     const toggle = document.getElementById("gc-toggle");
@@ -517,7 +537,13 @@
           { type: "button", id: "gc-minimize", title: ui.minimizeTitle, "aria-label": ui.minimizeAria },
           "\u2013"
         ),
-        h("p", { id: "gc-title" }, ui.title)
+        h("p", { id: "gc-title" }, ui.title),
+        h(
+          "p",
+          { id: "gc-fast-badge", class: "gc-hidden", title: ui.fastModeBadgeTitle },
+          "\u26a1 ",
+          ui.fastModeBadge
+        )
       ),
       h(
         "div",
@@ -697,6 +723,7 @@
     installUndoOfferListeners();
     installConfirmEscapeListener(root);
     GC.syncDeleteFeatureFromStorage();
+    syncFastModeFromStorage();
     restoreActionCheckboxState();
     GC.loadShortcutHints();
     renderNextEmailTargetSection();
@@ -716,7 +743,7 @@
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, renderContextBar, reportError, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
-    setExtensionVisibility, setProceedButtonLabel, setProgress, setWorking, setWorkingStep, showToast, startProceedAutoCountdown,
+    setExtensionVisibility, setFastMode, setProceedButtonLabel, setProgress, setWorking, setWorkingStep, showToast, startProceedAutoCountdown,
     stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, toastQueue,
     updateExecuteSelectedState });
 })();

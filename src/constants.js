@@ -21,6 +21,8 @@
     working: false,
     batchExecuting: false,
     stopExecutionRequested: false,
+    /** Fast mode (popup setting): skip settle pauses and auto-proceed countdowns. */
+    fastMode: false,
     extensionContextInvalidated: false
   };
   /**
@@ -48,6 +50,8 @@
       workingStep: (step, total, label) => `Step ${step}/${total}: ${label}`,
       bulkProgress: (page, count, verbed) => `Page ${page} \u00b7 ${count.toLocaleString()} ${verbed}`,
       openEmailHint: "Open an email to enable actions.",
+      fastModeBadge: "Fast mode",
+      fastModeBadgeTitle: "Fast mode is on: no pauses between steps, and countdown prompts proceed immediately. Turn it off in the extension popup.",
       senderLabel: "Sender",
       sectionPrepare: "Prepare",
       sectionArchive: "Archive",
@@ -84,6 +88,7 @@
       alreadyUnsubscribed: (sender) => `Already unsubscribed: ${sender}`,
       unsubscribeComplete: "Unsubscribe complete",
       proceedingWithoutUnsubscribe: "Proceeding without unsubscribe",
+      fastModeProceeded: "Fast mode: proceeded without waiting",
       movedToInbox: "Moved to Inbox",
       showingArchived: "Showing archived",
       openedNextEmail: "Opened next email",
@@ -119,6 +124,7 @@
   /** Popup settings: delete options are opt-in; confirmation can be skipped only when it is on. */
   const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
   const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
+  const FAST_MODE_KEY = "fastModeEnabled";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
@@ -195,7 +201,7 @@
 
   Object.assign(GC, { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND,
     AUTO_PROCEED_SECONDS, AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, COMMAND_ACTION_IDS,
-    CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, DEFAULT_COMMAND_SHORTCUTS,
+    CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, FAST_MODE_KEY, DEFAULT_COMMAND_SHORTCUTS,
     EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS,
     NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, SHORTCUT_HINT_TARGETS,
     SHOW_EXTENSION_KEY, SIGNATURE_MATCH_LOG_STYLE, STATS_DAYS_KEPT, STATS_KEY, STOP_EXECUTION_COMMAND,

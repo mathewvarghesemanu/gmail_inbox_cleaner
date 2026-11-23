@@ -5,7 +5,7 @@
 
   const { GMAIL_TEXT, SELECTORS, buildMessageSignature, findCurrentRowIndex, firstAttr, firstText,
     getListContextHashFromHash, getThreadTokenFromHash, isDisabledControl, isVisible, normalizeEmail,
-    normalizeFingerprintText, queryFirst, robustClick, sleep, state, waitFor, waitForSelector } = GC;
+    normalizeFingerprintText, queryFirst, robustClick, state, waitFor, waitForSelector } = GC;
 
   /** Returns open thread root. */
   function getOpenThreadRoot() {
@@ -159,7 +159,7 @@
     const moved = await waitForPageChange(before, 12000);
     if (moved) {
       await waitForSelector(SELECTORS.listViewReady, 12000);
-      await sleep(350);
+      await GC.settle(350);
     }
     return moved;
   }

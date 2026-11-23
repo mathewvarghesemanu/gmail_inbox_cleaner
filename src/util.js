@@ -208,6 +208,15 @@
     return predicate() || null;
   }
 
+  /**
+   * Fixed "let Gmail settle" pause taken after Gmail has already signalled it is
+   * ready. Skipped in Fast mode (popup setting). Polling intervals, retry backoffs
+   * and pauses with no DOM signal to wait on must keep using sleep().
+   */
+  function settle(ms) {
+    return GC.state?.fastMode ? Promise.resolve() : sleep(ms);
+  }
+
   /** Waits for selector. */
   function waitForSelector(selector, timeout = 7000) {
     return waitFor(() => document.querySelector(selector), { timeout, interval: 150 });
@@ -365,6 +374,6 @@
   Object.assign(GC, { applyElPosition, dispatchMenuClickSequence, firstAttr, firstText, h,
     isContextInvalidatedError, isDisabledControl, isEditableTarget, isVisible, keepElInView, makeDraggable,
     markExtensionContextInvalidated, navigateWithinGmail, normalizeComparableUrl, queryFirst,
-    resetElPosition, robustClick, safeStorageGet, safeStorageSet, setLog, sleep, triggerKeySequence, waitFor,
+    resetElPosition, robustClick, safeStorageGet, safeStorageSet, setLog, settle, sleep, triggerKeySequence, waitFor,
     waitForSelector });
 })();

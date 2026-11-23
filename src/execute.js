@@ -179,7 +179,7 @@
       await dismissUnsubscribeDialogs(1);
       const rows = getThreadRows();
       if (rows.length > 0) {
-        await sleep(120);
+        await GC.settle(120);
         return true;
       }
 
@@ -187,7 +187,7 @@
       if (hasVisibleToolbar) {
         await waitForThreadRows(1200);
         if (getThreadRows().length > 0) {
-          await sleep(120);
+          await GC.settle(120);
           return true;
         }
       }
@@ -196,7 +196,7 @@
     }
 
     // Keep flow resilient if Gmail is slow or there are simply no rows.
-    await sleep(200);
+    await GC.settle(200);
     return false;
   }
 

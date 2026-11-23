@@ -299,7 +299,7 @@
           const fingerprint = getFirstRowFingerprint();
           return !!(fingerprint && fingerprint !== beforeFingerprint);
         }, { timeout: 2000, interval: 150, shouldAbort: GC.shouldStopExecution });
-        if (refreshed) await sleep(300);
+        if (refreshed) await GC.settle(300);
 
         if (!getThreadRows().length) break;
         const afterFingerprint = getFirstRowFingerprint();

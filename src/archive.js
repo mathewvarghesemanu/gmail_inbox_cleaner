@@ -85,7 +85,7 @@
     await selectAllMatchingSearch({ includeAllInSearch: false });
     setLog(`Page ${pageNumber}: ${state.selectedConversationsText} Archiving...`);
     await archiveSelected();
-    await sleep(800);
+    await GC.settle(800);
     return true;
   }
 
@@ -196,7 +196,7 @@
           const fingerprint = getFirstRowFingerprint();
           return !!(fingerprint && fingerprint !== beforeFingerprint);
         }, { timeout: 2000, interval: 150, shouldAbort: GC.shouldStopExecution });
-        if (refreshed) await sleep(300);
+        if (refreshed) await GC.settle(300);
 
         cycles += 1;
 

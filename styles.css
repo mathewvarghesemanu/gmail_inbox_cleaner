@@ -77,6 +77,25 @@
   opacity: 0.6;
 }
 
+#gc-fast-badge {
+  margin: 6px auto 0;
+  width: fit-content;
+  padding: 2px 8px;
+  border: 1px solid #f9ab00;
+  border-radius: 999px;
+  background: #fef7e0;
+  color: #7a4d00;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: help;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-fast-badge {
+  border-color: #fdd663;
+  background: #2b2612;
+  color: #fdd663;
+}
+
 #gc-title {
   margin: 0;
   font-size: 15px;
