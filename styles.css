@@ -91,7 +91,11 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* overflow-y: auto would make overflow-x auto too; never scroll sideways. */
+  overflow-x: hidden;
   overscroll-behavior: contain;
+  /* minmax(0, 1fr): long one-line text (sender, next email) must not widen the track. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 #gc-root > :not(#gc-body) {
@@ -165,7 +169,7 @@
   background: #fbfcfe;
   padding: 8px;
   display: grid;
-  gap: 8px;
+  gap: 8px;  grid-template-columns: minmax(0, 1fr);
 }
 
 .gc-hidden {
@@ -245,14 +249,14 @@
 
 .gc-action-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
 
 .gc-scope-row {
   display: grid;
-  grid-template-columns: 52px 1fr 1fr;
+  grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 6px;
 }
@@ -271,6 +275,8 @@
   padding: 8px 6px;
   text-align: center;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gc-setting-row {
