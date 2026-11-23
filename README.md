@@ -55,6 +55,7 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 - Draggable toggle button — slides along Y-axis, grip icon on hover
 - Buttons and checkboxes disable automatically when no email is open or an action is running
 - Popup setting to show or hide the in-page extension UI
+- Optional `Delete Open Email` button (off by default; enable in the popup). Moves the open email to Trash after a confirmation, which can be skipped from the popup. Never part of Execute Selected
 
 ## Keyboard shortcuts
 

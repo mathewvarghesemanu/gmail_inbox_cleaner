@@ -1,4 +1,7 @@
 const SHOW_EXTENSION_KEY = "showExtensionEnabled";
+/** Mirrors src/constants.js. */
+const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
+const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
 
 /** Reads keys from chrome.storage.local, resolving {} on error. */
 function storageGet(keys) {
@@ -15,7 +18,7 @@ function storageGet(keys) {
 
 /** Local-only usage counters written by the content script (never leave the device). */
 const STATS_KEY = "gcStats";
-const STAT_FIELDS = ["unsubscribed", "conversationsArchived", "pagesArchived", "batches"];
+const STAT_FIELDS = ["unsubscribed", "conversationsArchived", "pagesArchived", "deleted", "batches"];
 
 /** Returns the local-date key (YYYY-MM-DD), matching src/stats.js. */
 function getStatsDayKey(date = new Date()) {
@@ -83,13 +86,51 @@ function initShowExtension(checkbox, stored) {
   });
 }
 
+/**
+ * Wires the Delete toggles. "Skip confirmation" and the disclaimer only show while
+ * Delete is on; turning Delete off also turns confirmation back on.
+ * The sidebar picks up changes live via chrome.storage.onChanged.
+ */
+function initDeleteSettings(stored) {
+  const enabled = document.getElementById("delete-enabled");
+  const skip = document.getElementById("delete-skip-confirm");
+  const options = document.getElementById("delete-options");
+  const warning = document.getElementById("delete-no-confirm-warning");
+  if (!enabled || !skip || !options) return;
+
+  const render = () => {
+    options.hidden = !enabled.checked;
+    if (warning) warning.hidden = !(enabled.checked && skip.checked);
+  };
+
+  enabled.checked = stored[DELETE_ENABLED_KEY] === true;
+  skip.checked = enabled.checked && stored[DELETE_CONFIRM_SKIP_KEY] === true;
+  render();
+
+  enabled.addEventListener("change", () => {
+    if (!enabled.checked) skip.checked = false;
+    chrome.storage.local.set({
+      [DELETE_ENABLED_KEY]: enabled.checked,
+      [DELETE_CONFIRM_SKIP_KEY]: skip.checked
+    });
+    render();
+  });
+
+  skip.addEventListener("change", () => {
+    chrome.storage.local.set({ [DELETE_CONFIRM_SKIP_KEY]: enabled.checked && skip.checked });
+    render();
+  });
+}
+
 /** Handles init. */
 async function init() {
   initStats();
-  const stored = await storageGet([SHOW_EXTENSION_KEY]);
+  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY]);
 
   const checkbox = document.getElementById("show-extension");
   if (checkbox) initShowExtension(checkbox, stored);
+
+  initDeleteSettings(stored);
 }
 
 init();

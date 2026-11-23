@@ -14,6 +14,27 @@
         <span>Show the extension</span>
       </label>
 
+      <section class="danger-zone" aria-labelledby="delete-title">
+        <h2 id="delete-title">Delete</h2>
+        <label class="toggle-row" for="delete-enabled">
+          <input id="delete-enabled" type="checkbox" />
+          <span>Enable "Delete Open Email"</span>
+        </label>
+        <div id="delete-options" class="delete-options" hidden>
+          <label class="toggle-row" for="delete-skip-confirm">
+            <input id="delete-skip-confirm" type="checkbox" />
+            <span>Skip confirmation before deleting</span>
+          </label>
+          <p id="delete-no-confirm-warning" class="danger-note" hidden>
+            Emails will be moved to Trash immediately, with no confirmation.
+          </p>
+          <p class="disclaimer">
+            Deleted emails go to Gmail Trash, which Gmail empties permanently after 30 days.
+            You use this feature at your own risk and are solely responsible for anything you delete.
+          </p>
+        </div>
+      </section>
+
       <section class="stats" aria-labelledby="stats-title">
         <h2 id="stats-title">Stats</h2>
         <table class="stats-table">
@@ -24,6 +45,7 @@
             <tr><th scope="row">Senders unsubscribed</th><td data-stat="today-unsubscribed">0</td><td data-stat="total-unsubscribed">0</td></tr>
             <tr><th scope="row">Conversations archived</th><td data-stat="today-conversationsArchived">0</td><td data-stat="total-conversationsArchived">0</td></tr>
             <tr><th scope="row">Pages archived</th><td data-stat="today-pagesArchived">0</td><td data-stat="total-pagesArchived">0</td></tr>
+            <tr><th scope="row">Emails deleted</th><td data-stat="today-deleted">0</td><td data-stat="total-deleted">0</td></tr>
             <tr><th scope="row">Batches run</th><td data-stat="today-batches">0</td><td data-stat="total-batches">0</td></tr>
           </tbody>
         </table>

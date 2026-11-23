@@ -82,6 +82,7 @@
         "src/search.js",
         "src/selection.js",
         "src/archive.js",
+        "src/delete.js",
         "src/undo.js",
         "src/unsubscribe.js",
         "src/next-email.js",

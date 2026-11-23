@@ -3,7 +3,7 @@
   const GC = window.__gc;
   if (!GC || GC.skipLoad) return;
 
-  const { NEXT_EMAIL_TARGET_CACHE_KEY, SHOW_EXTENSION_KEY,
+  const { DELETE_ENABLED_KEY, NEXT_EMAIL_TARGET_CACHE_KEY, SHOW_EXTENSION_KEY,
     buildMessageSignature, createEmptyNextTarget, escapeHtml, extractSenderFromQuery,
     findCurrentRowIndexInDom, findOpenEmailSender, getNormalizedWords, getOpenEmailSubject,
     getRowFingerprint, getWordOverlapScore, hashString, installShortcutCommandListener,
@@ -57,6 +57,9 @@
     if (areaName !== "local") return;
     if (changes[SHOW_EXTENSION_KEY]) {
       setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
+    }
+    if (changes[DELETE_ENABLED_KEY]) {
+      GC.setDeleteFeatureVisibility(changes[DELETE_ENABLED_KEY].newValue === true);
     }
     if (changes[NEXT_EMAIL_TARGET_CACHE_KEY]) {
       const cached = changes[NEXT_EMAIL_TARGET_CACHE_KEY].newValue || {};

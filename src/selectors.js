@@ -108,6 +108,8 @@
     resultRangeFallbackNodes: "span, div",
     /** Gmail action id for Archive on toolbar buttons (locale independent). */
     archiveAct: "7",
+    /** Gmail action id for Delete (move to Trash) on toolbar buttons (locale independent). */
+    deleteAct: "10",
 
     // Pagination (locale-independent fallbacks used when "Older" text is not found)
     /** Pager group next to the "1–50 of N" counter; its last button is Older/next. */
@@ -156,6 +158,10 @@
     select: "select",
     all: "all",
     archive: "archive",
+    /** Exact aria-label / tooltip of Gmail's Delete button. */
+    delete: "delete",
+    /** Never click these (Trash / Spam views). */
+    deleteForeverPattern: /delete forever|permanently/i,
     olderSignals: ["older", "next page"],
     nextExact: "next",
     unsubscribe: "unsubscribe",

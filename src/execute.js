@@ -3,7 +3,7 @@
   const GC = window.__gc;
   if (!GC || GC.skipLoad) return;
 
-  const { ACTION_BUTTON_IDS, STRINGS, actionArchiveAll, actionArchiveRecursive, actionGoInbox,
+  const { ACTION_BUTTON_IDS, STRINGS, actionArchiveAll, actionArchiveRecursive, actionDeleteOpenEmail, actionGoInbox,
     actionGoNextPage, actionSelectLikeOpen, actionUnsubscribe, announceEmailTargetStatus,
     cacheNextEmailTargetForSender, clearCachedNextEmailTarget, dismissUnsubscribeDialogs,
     findOpenEmailSender, getMailboxToolbar, getSelectedActionIds, getThreadRows, recordStats,
@@ -18,7 +18,8 @@
       [ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE]: actionArchiveAll,
       [ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES]: actionArchiveRecursive,
       [ACTION_BUTTON_IDS.GO_TO_INBOX]: actionGoInbox,
-      [ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE]: actionGoNextPage
+      [ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE]: actionGoNextPage,
+      [ACTION_BUTTON_IDS.DELETE_OPEN_EMAIL]: actionDeleteOpenEmail
     };
     return handlers[buttonId] || null;
   }

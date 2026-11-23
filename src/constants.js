@@ -35,7 +35,8 @@
       ARCHIVE_THIS_PAGE: "Archive Listed Emails in This Page",
       ARCHIVE_ALL_PAGES: "Archive Listed Emails in All Pages",
       GO_TO_INBOX: "Go to Inbox",
-      GO_TO_NEXT_PAGE: "Go to Next Email"
+      GO_TO_NEXT_PAGE: "Go to Next Email",
+      DELETE_OPEN_EMAIL: "Delete Open Email"
     },
     ui: {
       toggle: "Gmail unsubscriber",
@@ -57,6 +58,8 @@
       ready: "Ready.",
       actionFallback: "Action",
       undoArchive: "Undo archive",
+      deleteConfirm: "Delete",
+      cancel: "Cancel",
       undoDismissAria: "Dismiss undo",
       notCached: "Not cached yet.",
       cachedTargetReady: "Cached target ready",
@@ -89,11 +92,16 @@
       openedNextEmail: "Opened next email",
       noCachedTarget: "No cached email target",
       nextTargetUnavailable: "Couldn't find the next email; skipping Go to Next Email",
-      executionFailed: "Execute Selected failed"
+      executionFailed: "Execute Selected failed",
+      deleted: "Moved to Trash",
+      deleteCancelled: "Delete cancelled",
+      deleteDisabled: "Delete is turned off in the extension popup"
     },
     prompt: {
       noUnsubscribe:
-        "No unsubscribe button/link found in this email. Proceed with remaining selected actions?"
+        "No unsubscribe button/link found in this email. Proceed with remaining selected actions?",
+      deleteOpenEmail: (sender, subject) =>
+        `Delete this email from ${sender}${subject ? ` ("${subject}")` : ""}? It moves to Trash.`
     }
   };
   const LABELS = STRINGS.actions;
@@ -103,9 +111,14 @@
     ARCHIVE_THIS_PAGE: "gc-archive",
     ARCHIVE_ALL_PAGES: "gc-archive-rec",
     GO_TO_INBOX: "gc-inbox",
-    GO_TO_NEXT_PAGE: "gc-next-page"
+    GO_TO_NEXT_PAGE: "gc-next-page",
+    /** Standalone button (no checkbox): never part of Execute Selected. */
+    DELETE_OPEN_EMAIL: "gc-delete-open"
   };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
+  /** Popup settings: Delete Open Email is opt-in; confirmation can be skipped only when it is on. */
+  const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
+  const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
@@ -183,7 +196,7 @@
 
   Object.assign(GC, { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND,
     AUTO_PROCEED_SECONDS, AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, COMMAND_ACTION_IDS,
-    CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DEFAULT_COMMAND_SHORTCUTS,
+    CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, DEFAULT_COMMAND_SHORTCUTS,
     EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS,
     NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, ROOT_POS_KEY, SHORTCUT_HINT_TARGETS,
     SHOW_EXTENSION_KEY, SIGNATURE_MATCH_LOG_STYLE, STATS_DAYS_KEPT, STATS_KEY, STOP_EXECUTION_COMMAND,
