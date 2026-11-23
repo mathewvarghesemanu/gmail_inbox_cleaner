@@ -288,16 +288,16 @@
   }
 
   /**
-   * Returns "dark" or "light", following Gmail's own theme (which is independent of
-   * the OS setting); falls back to prefers-color-scheme when Gmail's is unknown.
+   * Returns "dark" or "light", following Gmail's own theme. The OS setting is not
+   * used: Gmail's theme is independent of it, and with no opaque background up to
+   * <html> the page shows the browser's white canvas, so that counts as light.
    */
   function detectGmailTheme() {
-    const color = findBackgroundColor(document.querySelector("[role='main']")) || findBackgroundColor(document.body);
-    if (color) {
-      const luminance = (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
-      return luminance < 0.4 ? "dark" : "light";
-    }
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const color = findBackgroundColor(document.querySelector("[role='main']")) ||
+      findBackgroundColor(document.body);
+    if (!color) return "light";
+    const luminance = (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
+    return luminance < 0.4 ? "dark" : "light";
   }
 
   /** Applies the detected theme to the sidebar (attribute only: not seen by the childList observer). */

@@ -228,4 +228,12 @@ describe("theme", () => {
     expect(document.getElementById("gc-root").dataset.gcTheme).toBe("light");
     document.body.style.backgroundColor = "";
   });
+
+  it("stays light when Gmail has no opaque background, even with a dark OS setting", () => {
+    const GC = load();
+    window.matchMedia = () => ({ matches: true });
+    GC.applyTheme();
+    expect(document.getElementById("gc-root").dataset.gcTheme).toBe("light");
+    delete window.matchMedia;
+  });
 });
