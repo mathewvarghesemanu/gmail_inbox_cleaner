@@ -500,3 +500,11 @@
     width: min(300px, calc(100vw - 16px));
   }
 }
+
+/* Never render extension UI in print or print preview. */
+@media print {
+  #gc-root,
+  #gc-toggle {
+    display: none !important;
+  }
+}
