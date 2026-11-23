@@ -1,12 +1,12 @@
 # Gmail Unsubscriber Ondevice
 
-Current project state for the version `2.3.1` Chrome Web Store package in this repo.
+Current project state for the version `2.4.0` Chrome Web Store package in this repo.
 
 ## Release snapshot
 
 - Product name: `Gmail Unsubscriber Ondevice`
 - Manifest version: `3`
-- Current package version in `manifest.json`: `2.3.1`
+- Current package version in `manifest.json`: `2.4.0`
 - Supported surface: Gmail web only (`https://mail.google.com/*`)
 - Primary UI: in-page Gmail sidebar plus extension popup
 
@@ -70,4 +70,4 @@ Popup settings:
 ## Notes for this publish
 
 - The codebase currently includes batch execution, stop controls, next-email targeting, and popup-based local settings in addition to the original unsubscribe/select/archive flow.
-- This repo is ready to package as version `2.3.1`.
+- This repo is ready to package as version `2.4.0`.
