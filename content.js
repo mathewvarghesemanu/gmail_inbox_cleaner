@@ -508,7 +508,7 @@
   }
 
   /** Handles ask proceed confirmation. */
-  function askProceedConfirmation(message) {
+  function askProceedConfirmation(message, options = {}) {
     const box = document.getElementById("gc-confirm");
     const messageEl = document.getElementById("gc-confirm-message");
     if (!box || !messageEl) return Promise.resolve(false);
@@ -519,7 +519,7 @@
 
     messageEl.textContent = message;
     box.classList.add("gc-confirm-visible");
-    if (String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
+    if (options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
       startProceedAutoCountdown(AUTO_PROCEED_SECONDS);
     } else {
       stopProceedAutoCountdown();
@@ -2635,6 +2635,7 @@
       setLog("Archive action sent for current page.");
       flashSuccess("Archived");
       showToast("Archive complete");
+      offerGmailUndo();
     } catch (error) {
       setLog(error.message || "Archive failed.");
     } finally {
@@ -2646,12 +2647,15 @@
   async function actionArchiveRecursive(options = {}) {
     const manageWorking = !options.skipWorking;
     if (manageWorking) setWorking(true);
+    const undoTracker = { sender: "", cycles: 0 };
     try {
       await ensureQueryReady();
       await waitForListToLoadForBatchStep(20000);
       if (!getThreadRows().length) {
         throw new Error("No emails found in the current filtered list to archive.");
       }
+      if (!(await confirmArchiveAllPagesWithCount(state.lockedSender))) return;
+      undoTracker.sender = state.lockedSender;
 
       let cycles = 0;
       let unchangedCycles = 0;
@@ -2674,6 +2678,7 @@
         await waitForSelectionToSettle();
         setLog(`Cycle ${cycles + 1}: archiving...`);
         await archiveSelected();
+        undoTracker.cycles += 1;
         await sleep(2000);
 
         cycles += 1;
@@ -2708,6 +2713,7 @@
     } catch (error) {
       setLog(error.message || "Recursive archive failed.");
     } finally {
+      if (undoTracker.sender && undoTracker.cycles > 0) offerUndoAllArchive(undoTracker.sender);
       if (manageWorking) setWorking(false);
     }
   }
@@ -2788,6 +2794,359 @@
     } finally {
       setWorking(false);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Archive undo + dry-run count
+  // ---------------------------------------------------------------------------
+
+  const UNDO_GMAIL_OFFER_MS = 10000;
+  const UNDO_ALL_OFFER_MS = 60000;
+  let undoOfferTimer = null;
+  let undoOfferPayload = null;
+
+  /** Returns true when the element belongs to this extension's own UI. */
+  function isOwnUiElement(el) {
+    return !!el?.closest?.("#gc-root, #gc-toggle");
+  }
+
+  /** Finds the "Undo" action in Gmail's notification bar (locale-robust, English fallback). */
+  function findGmailUndoLink() {
+    const byId = [...document.querySelectorAll("#link_undo, [id^='link_undo']")].find(
+      (el) => isVisible(el) && !isOwnUiElement(el)
+    );
+    if (byId) return byId;
+
+    const actionableSelector = "[role='link'], [role='button'], a, span[idlink], span.ag";
+    const containers = [...document.querySelectorAll("[role='alert'], div.vh, div.b8")].filter(
+      (el) => isVisible(el) && !isOwnUiElement(el)
+    );
+    for (const container of containers) {
+      const actions = [...container.querySelectorAll(actionableSelector)].filter(
+        (el) => isVisible(el) && !isOwnUiElement(el)
+      );
+      if (!actions.length) continue;
+      const byText = actions.find((el) => /\bundo\b/i.test((el.textContent || "").trim()));
+      if (byText) return byText;
+      // Locale fallback: the archive notification carries a single action (Undo).
+      if (actions.length === 1) return actions[0];
+    }
+    return null;
+  }
+
+  /** Waits briefly for Gmail's undo link (its notification can lag the archive click). */
+  async function waitForGmailUndoLink(timeout = 1500) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const link = findGmailUndoLink();
+      if (link) return link;
+      await sleep(120);
+    }
+    return findGmailUndoLink();
+  }
+
+  /** Hides the extension's undo offer. */
+  function hideUndoOffer() {
+    if (undoOfferTimer) {
+      clearTimeout(undoOfferTimer);
+      undoOfferTimer = null;
+    }
+    undoOfferPayload = null;
+    document.getElementById("gc-undo")?.classList.remove("gc-undo-visible");
+  }
+
+  /** Shows an undo offer (message + button) for durationMs. */
+  function showUndoOffer(payload) {
+    const box = document.getElementById("gc-undo");
+    const messageEl = document.getElementById("gc-undo-message");
+    const actionEl = document.getElementById("gc-undo-action");
+    if (!box || !messageEl || !actionEl) return;
+    hideUndoOffer();
+    undoOfferPayload = payload;
+    messageEl.textContent = payload.message || "";
+    actionEl.textContent = payload.actionLabel || "Undo";
+    box.classList.add("gc-undo-visible");
+    undoOfferTimer = setTimeout(hideUndoOffer, payload.durationMs || UNDO_GMAIL_OFFER_MS);
+  }
+
+  /** Offers to click Gmail's own Undo after a single-page archive. */
+  function offerGmailUndo() {
+    showUndoOffer({
+      kind: "gmail",
+      message: "Archived this page.",
+      actionLabel: "Undo archive",
+      durationMs: UNDO_GMAIL_OFFER_MS
+    });
+  }
+
+  /** Offers to move everything from the archived sender back to the Inbox. */
+  function offerUndoAllArchive(sender) {
+    const normalized = normalizeEmail(sender);
+    if (!normalized) return;
+    showUndoOffer({
+      kind: "all",
+      sender: normalized,
+      message: `Archived all pages from ${normalized}.`,
+      actionLabel: "Undo all",
+      durationMs: UNDO_ALL_OFFER_MS
+    });
+  }
+
+  /** Clicks Gmail's Undo link if still present. Never throws. */
+  async function undoSinglePageArchive() {
+    try {
+      const link = await waitForGmailUndoLink(1500);
+      if (!link) {
+        setLog("Gmail's Undo link is no longer available.");
+        showToast("Undo no longer available in Gmail. Use Show Archived to restore.", { durationMs: 4000 });
+        return;
+      }
+      robustClick(link);
+      setLog("Undo sent to Gmail.");
+      showToast("Archive undone");
+    } catch (error) {
+      setLog(`Undo failed: ${error?.message || error}`);
+      showToast("Undo failed");
+    }
+  }
+
+  /** Finds Gmail's "Move to Inbox" toolbar control (English text first, then act code). */
+  function findMoveToInboxControl() {
+    const toolbar = getMailboxToolbar() || document;
+    const controls = [...toolbar.querySelectorAll("div[role='button'], button, span[role='button']")].filter(
+      (el) =>
+        isVisible(el) &&
+        !isOwnUiElement(el) &&
+        (el.getAttribute("aria-disabled") || "").toLowerCase() !== "true"
+    );
+    const byText = controls.find((el) => {
+      const signal = [
+        el.getAttribute("aria-label") || "",
+        el.getAttribute("data-tooltip") || "",
+        (el.textContent || "").trim()
+      ].join(" ");
+      return /move to inbox/i.test(signal);
+    });
+    if (byText) return byText;
+    // Locale-independent fallback: Gmail's toolbar action code for Move to Inbox.
+    return controls.find((el) => (el.getAttribute("act") || "").trim() === "8") || null;
+  }
+
+  /** Moves the current selection to the Inbox. Returns false if the control is missing. */
+  async function moveSelectedToInbox() {
+    const control = findMoveToInboxControl();
+    if (!control) return false;
+    robustClick(control);
+    await sleep(700);
+    return true;
+  }
+
+  /** Finds the visible "1–50 of 1,234" range element in Gmail's toolbar. */
+  function findResultRangeElement() {
+    const scopes = [getMailboxToolbar(), document].filter(Boolean);
+    for (const scope of scopes) {
+      const el = [...scope.querySelectorAll("span.Dj")].find((node) => isVisible(node) && !isOwnUiElement(node));
+      if (el) return el;
+    }
+    const toolbar = getMailboxToolbar();
+    if (!toolbar) return null;
+    return (
+      [...toolbar.querySelectorAll("span, div")].find((node) => {
+        if (!isVisible(node) || node.children.length > 6) return false;
+        const text = (node.textContent || "").trim();
+        return text.length < 48 && /\d\s*[–—\-~～]\s*\d/.test(text);
+      }) || null
+    );
+  }
+
+  /** Extracts integer groups ("1,234", "1 234", "1.234") from localized text. */
+  function parseLocalizedIntegers(text) {
+    const groups = String(text || "").match(/\d+(?:[.,'   ]\d{2,3})*/g) || [];
+    return groups
+      .map((group) => Number.parseInt(group.replace(/\D/g, ""), 10))
+      .filter((value) => Number.isFinite(value));
+  }
+
+  /**
+   * Reads Gmail's result count. Returns { total, pageSize, many } or null.
+   * Uses the largest number as the total so locales that put it first still work.
+   */
+  function readGmailResultCount() {
+    const el = findResultRangeElement();
+    if (!el) return null;
+    const tsParts = [...el.querySelectorAll(".ts")].map((node) => node.textContent || "");
+    const numbers = tsParts.length >= 2
+      ? tsParts.flatMap((part) => parseLocalizedIntegers(part))
+      : parseLocalizedIntegers(el.textContent || "");
+    if (numbers.length < 2) return null;
+
+    if (numbers.length === 2) {
+      // "1–50 of many": no total available.
+      const [a, b] = numbers;
+      return { total: null, pageSize: Math.max(a, b) - Math.min(a, b) + 1, many: true };
+    }
+
+    const total = Math.max(...numbers);
+    const rest = [...numbers];
+    rest.splice(rest.indexOf(total), 1);
+    const pageSize = Math.max(...rest) - Math.min(...rest) + 1;
+    return { total, pageSize, many: false };
+  }
+
+  /** Builds the human description of how many conversations will be archived. */
+  function describeArchiveCount() {
+    const count = readGmailResultCount();
+    if (count && !count.many && count.total > 0) {
+      return `~${count.total.toLocaleString()} conversation${count.total === 1 ? "" : "s"}`;
+    }
+    if (count && count.many) {
+      return `many conversations (${count.pageSize}+ per page × multiple pages)`;
+    }
+    const rows = getThreadRows().length;
+    return rows ? `at least ${rows} conversation${rows === 1 ? "" : "s"}` : "all listed conversations";
+  }
+
+  /** Dry-run: shows the match count and asks before archiving all pages. */
+  async function confirmArchiveAllPagesWithCount(sender) {
+    const description = describeArchiveCount();
+    setLog(`Dry run: ${description} from ${sender}.`);
+    const proceed = await askProceedConfirmation(
+      `About to archive ${description} from ${sender}. Proceed?`,
+      { autoProceed: state.batchExecuting }
+    );
+    if (proceed) return true;
+    setLog("Archive cancelled by user.");
+    if (state.batchExecuting) {
+      state.stopExecutionRequested = true;
+      showToast("Execution stopped");
+    } else {
+      showToast("Archive cancelled");
+    }
+    return false;
+  }
+
+  /** Moves every archived conversation from sender back to the Inbox. */
+  async function actionUndoArchiveAll(sender) {
+    const expectedSender = normalizeEmail(sender);
+    if (!expectedSender) {
+      showToast("Nothing to undo");
+      return;
+    }
+    if (state.working || state.batchExecuting) {
+      showToast("Finish or stop the current run first");
+      return;
+    }
+    const query = `from:${expectedSender} -in:inbox`;
+    const proceed = await askProceedConfirmation(
+      `Move archived conversations from ${expectedSender} back to Inbox? This searches "${query}" and moves every match, including ones archived before this run.`
+    );
+    if (!proceed) {
+      setLog("Undo all cancelled.");
+      return;
+    }
+    if (state.working || state.batchExecuting) {
+      showToast("Finish or stop the current run first");
+      return;
+    }
+    hideUndoOffer();
+
+    // Run as a stoppable execution so the Stop button and stop checks apply.
+    state.batchExecuting = true;
+    state.stopExecutionRequested = false;
+    setWorking(true);
+    let cycles = 0;
+    try {
+      setLog(`Undo all: searching ${query}...`);
+      await runSearchQuery(query);
+
+      let unchangedCycles = 0;
+      const maxCycles = 300;
+      const maxUnchangedCycles = 4;
+      while (cycles < maxCycles) {
+        if (shouldStopExecution()) {
+          setLog(`Undo all stopped after ${cycles} page(s).`);
+          showToast("Undo stopped");
+          return;
+        }
+        await ensureSearchContext(query);
+        const rows = getThreadRows();
+        if (!rows.length) break;
+
+        const rowSenders = getRowSenderSignals();
+        if (rowSenders.length && !rowSenders.some((s) => senderSignalMatchesExpected(s, expectedSender))) {
+          throw new Error(`Safety check failed: listed emails are not from ${expectedSender}.`);
+        }
+
+        const beforeFingerprint = getFirstRowFingerprint();
+        setLog(`Undo all: page ${cycles + 1}, selecting...`);
+        await selectAllMatchingSearch({ includeAllInSearch: false });
+        await waitForSelectionToSettle();
+        if (shouldStopExecution()) continue;
+        setLog(`Undo all: page ${cycles + 1}, moving to Inbox...`);
+        const moved = await moveSelectedToInbox();
+        if (!moved) {
+          throw new Error("Could not find Gmail's Move to Inbox button.");
+        }
+        cycles += 1;
+        await sleep(2000);
+
+        if (!getThreadRows().length) break;
+        const afterFingerprint = getFirstRowFingerprint();
+        if (beforeFingerprint && afterFingerprint && beforeFingerprint === afterFingerprint) {
+          unchangedCycles += 1;
+          if (unchangedCycles >= maxUnchangedCycles) {
+            setLog(`Undo all stopped after ${cycles} page(s): list did not change.`);
+            showToast("Undo all incomplete");
+            return;
+          }
+          await sleep(800);
+        } else {
+          unchangedCycles = 0;
+        }
+      }
+
+      if (!cycles) {
+        setLog(`No archived conversations from ${expectedSender} found.`);
+        showToast("Nothing to restore");
+        return;
+      }
+      setLog(`Moved ${cycles} page(s) from ${expectedSender} back to Inbox.`);
+      flashSuccess("Restored");
+      showToast("Undo all complete");
+    } catch (error) {
+      setLog(`Undo all failed: ${error?.message || error}`);
+      showToast("Undo all failed");
+    } finally {
+      state.batchExecuting = false;
+      state.stopExecutionRequested = false;
+      setWorking(false);
+    }
+  }
+
+  /** Runs the action behind the current undo offer. */
+  function handleUndoOfferClick() {
+    const payload = undoOfferPayload;
+    if (!payload) return;
+    if (payload.kind === "gmail") {
+      hideUndoOffer();
+      void undoSinglePageArchive();
+      return;
+    }
+    if (payload.kind === "all") {
+      if (state.working || state.batchExecuting) {
+        showToast("Finish or stop the current run first");
+        return;
+      }
+      void runWithElapsedToast("Undo all", async () => {
+        await actionUndoArchiveAll(payload.sender);
+      });
+    }
+  }
+
+  /** Wires the undo offer buttons. */
+  function installUndoOfferListeners() {
+    document.getElementById("gc-undo-action")?.addEventListener("click", handleUndoOfferClick);
+    document.getElementById("gc-undo-dismiss")?.addEventListener("click", hideUndoOffer);
   }
 
   /** Returns row open control. */
@@ -3071,6 +3430,11 @@
       </div>
       <div id="gc-log">Ready.</div>
       <div id="gc-toast" role="status" aria-live="polite"></div>
+      <div id="gc-undo" role="status" aria-live="polite">
+        <span id="gc-undo-message"></span>
+        <button type="button" id="gc-undo-action">Undo archive</button>
+        <button type="button" id="gc-undo-dismiss" aria-label="Dismiss undo">&times;</button>
+      </div>
     `;
 
     document.body.appendChild(root);
@@ -3120,6 +3484,7 @@
     document.getElementById("gc-confirm-stop")?.addEventListener("click", () => {
       resolveProceedConfirmation(false);
     });
+    installUndoOfferListeners();
     restoreActionCheckboxState();
     renderNextEmailTargetSection();
     findOpenEmailSender();

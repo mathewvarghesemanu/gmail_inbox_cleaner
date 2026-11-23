@@ -508,3 +508,54 @@
     display: none !important;
   }
 }
+
+/* Undo-archive offer shown after archive actions. */
+#gc-undo {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #1f1f1f;
+  color: #ffffff;
+  font-size: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+}
+
+#gc-undo.gc-undo-visible {
+  display: flex;
+}
+
+#gc-undo-message {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#gc-undo-action {
+  border: 1px solid #8ab4f8;
+  border-radius: 8px;
+  background: transparent;
+  color: #8ab4f8;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#gc-undo-dismiss {
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+#gc-undo-dismiss:hover {
+  opacity: 1;
+}

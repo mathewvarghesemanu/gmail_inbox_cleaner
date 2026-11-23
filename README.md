@@ -27,8 +27,8 @@ gmail-cleaner-extension/
 
 - `Unsubscribe Open Email`
 - `Select All Emails Like Open Email`
-- `Archive Listed Emails in This Page`
-- `Archive Listed Emails in All Pages`
+- `Archive Listed Emails in This Page` — followed by an `Undo archive` button (~10s) that clicks Gmail's own Undo
+- `Archive Listed Emails in All Pages` — shows a dry-run count ("About to archive ~1,234 conversations from ...") before archiving, then offers `Undo all`, which moves that sender's archived mail (`from:<sender> -in:inbox`) back to Inbox after confirmation
 - `Go to Inbox`
 - `Go to Next Email`
 - `Show Archived` — searches for archived emails from current sender
