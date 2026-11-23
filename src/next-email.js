@@ -442,6 +442,7 @@
     const manageWorking = !options.skipWorking;
     if (manageWorking) GC.setWorking(true);
     try {
+      GC.hideGmailUndoOffer();
       window.location.hash = "#inbox";
       await waitForThreadRows(8000);
       state.query = "";
@@ -558,6 +559,7 @@
       }
     };
     try {
+      GC.hideGmailUndoOffer();
       setLog("Load Next Email [1/8]: Starting action...");
       const cached = !!state.nextTarget.url;
       if (cached) {

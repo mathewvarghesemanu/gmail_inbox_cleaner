@@ -55,14 +55,18 @@
   function shouldPrepareNextEmailTargetForBatch(selectedActionIds) {
     const hasGoNext = selectedActionIds.includes(ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
     if (!hasGoNext) return false;
-    const hasSelectLikeOpen = selectedActionIds.includes(ACTION_BUTTON_IDS.SELECT_LIKE_OPEN);
-    const hasUnsubscribe = selectedActionIds.includes(ACTION_BUTTON_IDS.UNSUBSCRIBE);
-    const hasArchive =
-      selectedActionIds.includes(ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE) ||
-      selectedActionIds.includes(ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES) ||
-      selectedActionIds.includes(ACTION_BUTTON_IDS.DELETE_THIS_PAGE) ||
-      selectedActionIds.includes(ACTION_BUTTON_IDS.DELETE_ALL_PAGES);
-    return hasSelectLikeOpen || (hasUnsubscribe && hasArchive);
+    // Any other step runs first (and may navigate away from the open email), so
+    // pick the next email while it is still open. Go to Next Email alone keeps
+    // its own fallback (cached target, then Gmail's Older button).
+    return selectedActionIds.some((id) => id !== ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
+  }
+
+  /**
+   * True when a failed step must stop the batch. An Unsubscribe failure does not:
+   * selecting and archiving that sender's mail is still wanted.
+   */
+  function shouldStopAfterFailedStep(actionId) {
+    return actionId !== ACTION_BUTTON_IDS.UNSUBSCRIBE;
   }
 
   /** Prepares next email target for batch selection. */
@@ -110,6 +114,7 @@
 
     state.batchExecuting = true;
     state.stopExecutionRequested = false;
+    state.batchStepError = "";
     setWorking(true);
     let failureMessage = "";
     try {
@@ -130,7 +135,16 @@
           STRINGS.ui.workingStep(index + 1, selectedActionIds.length, GC.getButtonLabel(document.getElementById(actionId))),
           actionId
         );
+        state.batchStepError = "";
         await runActionByButtonId(actionId, { skipWorking: true });
+        if (state.batchStepError && shouldStopAfterFailedStep(actionId)) {
+          const label = GC.getButtonLabel(document.getElementById(actionId));
+          const remaining = selectedActionIds.length - index - 1;
+          throw new Error(
+            `${label} failed (${state.batchStepError})` +
+              (remaining ? `; skipped the remaining ${remaining} step${remaining === 1 ? "" : "s"}.` : ".")
+          );
+        }
         if (shouldStopExecution()) break;
         if (index < selectedActionIds.length - 1 && shouldWaitBetweenActions(actionId, nextActionId)) {
           await waitForListToLoadForBatchStep();
@@ -155,6 +169,7 @@
       );
       state.batchExecuting = false;
       state.stopExecutionRequested = false;
+      state.batchStepError = "";
       setWorking(false);
     }
   }
@@ -201,6 +216,6 @@
   }
 
   Object.assign(GC, { executeSelectedActions, getActionHandler, prepareNextEmailTargetForBatchSelection, prepareNextEmailTargetOrSkip,
-    requestStopExecution, runActionByButtonId, shouldPrepareNextEmailTargetForBatch, shouldStopExecution,
+    requestStopExecution, runActionByButtonId, shouldPrepareNextEmailTargetForBatch, shouldStopAfterFailedStep, shouldStopExecution,
     shouldWaitBetweenActions, triggerExecuteSelected, waitForListToLoadForBatchStep });
 })();

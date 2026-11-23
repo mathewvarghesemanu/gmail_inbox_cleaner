@@ -222,6 +222,9 @@
   async function actionSelectLikeOpen(options = {}) {
     const manageWorking = !options.skipWorking;
     if (manageWorking) GC.setWorking(true);
+    // Drop any previous lock first, so a failed search can never leave the
+    // old sender locked for the Archive / Delete step that follows.
+    clearSenderLock();
     try {
       setLog("Finding sender from open email...");
       const sender = findOpenEmailSender();
@@ -250,11 +253,32 @@
       throw new Error(`Run '${LABELS.SELECT_LIKE_OPEN_EMAIL}' first so archive is locked to that sender.`);
     }
 
+    assertOpenEmailMatchesLock();
     await ensureSearchContext(state.lockedQuery);
     validateLockedArchiveContext();
   }
 
-  Object.assign(GC, { actionSelectLikeOpen, ensureQueryReady, ensureSearchContext, getCurrentSearchInput,
+  /** Forgets the sender that Archive / Delete are locked to. */
+  function clearSenderLock() {
+    state.lockedSender = "";
+    state.lockedQuery = "";
+  }
+
+  /**
+   * Throws when an email is open and its sender is not the locked sender, so
+   * Archive / Delete never act on a sender other than the one shown in the sidebar.
+   */
+  function assertOpenEmailMatchesLock() {
+    const openSender = normalizeEmail(findOpenEmailSender());
+    const lockedSender = normalizeEmail(state.lockedSender);
+    if (!openSender || openSender === lockedSender) return;
+    clearSenderLock();
+    throw new Error(
+      `Safety check failed: the open email is from ${openSender}, but the selection is locked to ${lockedSender}. Run '${LABELS.SELECT_LIKE_OPEN_EMAIL}' again.`
+    );
+  }
+
+  Object.assign(GC, { actionSelectLikeOpen, assertOpenEmailMatchesLock, clearSenderLock, ensureQueryReady, ensureSearchContext, getCurrentSearchInput,
     getCurrentSearchQuery, getHeaderSenderSignals, getRefinementQuery, getRowSenderSignals, runSearchQuery,
     searchBySender, validateLockedArchiveContext, waitForUrlChange });
 })();

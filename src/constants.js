@@ -21,6 +21,8 @@
     working: false,
     batchExecuting: false,
     stopExecutionRequested: false,
+    /** First error reported by the running Execute Selected step ("" when none). */
+    batchStepError: "",
     /** Fast mode (popup setting): skip settle pauses and auto-proceed countdowns. */
     fastMode: false,
     /** Theme setting from the popup: "auto" follows Gmail's theme. */

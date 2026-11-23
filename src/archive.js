@@ -4,7 +4,7 @@
   if (!GC || GC.skipLoad) return;
 
   const { GMAIL_TEXT, SELECTORS, STRINGS, countSelectedConversationRows, ensureQueryReady,
-    getFirstRowFingerprint, getMailboxToolbar, getThreadRows, hasAnySelectedConversationRow, isVisible,
+    getFirstRowFingerprint, getMailboxToolbar, getThreadRows, hasAnySelectedConversationRow, isVisible, normalizeEmail,
     recordStats, robustClick, runSearchQuery, selectAllMatchingSearch, setLog, sleep, state,
     triggerKeySequence, validateLockedArchiveContext, waitFor, waitForSelectionToSettle } = GC;
 
@@ -253,12 +253,24 @@
     await bulkAllPages("delete", options);
   }
 
+  /** Sender for Show Archived: the open email's sender, else the locked sender. */
+  function getShowArchivedSender() {
+    return normalizeEmail(GC.findOpenEmailSender() || state.lockedSender || "");
+  }
+
+  /** Archived-mail search, scoped to sender when one is known. */
+  function buildArchivedQuery(sender) {
+    const archived = "-in:inbox -in:sent -in:drafts -in:spam -in:trash";
+    return sender ? `from:${sender} ${archived}` : archived;
+  }
+
   /** Shows archived emails by running the archived search query. */
   async function actionShowArchived() {
     GC.setWorking(true);
     try {
-      await runSearchQuery("-in:inbox -in:sent -in:drafts -in:spam -in:trash");
-      setLog("Showing archived emails.");
+      const sender = getShowArchivedSender();
+      await runSearchQuery(buildArchivedQuery(sender));
+      setLog(sender ? `Showing archived emails from ${sender}.` : "Showing archived emails.");
       GC.showToast(STRINGS.toast.showingArchived);
     } catch (err) {
       GC.reportError("Could not run archived search: " + err.message);
@@ -268,6 +280,6 @@
   }
 
   Object.assign(GC, { actionArchiveAll, actionArchiveRecursive, actionDeleteAllPages, actionDeleteThisPage,
-    actionShowArchived, applyToSelected, archiveCurrentPage, archiveCurrentPageWithRetry, archiveSelected,
+    actionShowArchived, applyToSelected, buildArchivedQuery, getShowArchivedSender, archiveCurrentPage, archiveCurrentPageWithRetry, archiveSelected,
     bulkAllPages, bulkThisPage, findArchiveControl });
 })();
