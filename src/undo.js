@@ -71,11 +71,13 @@
   }
 
   /** Offers to click Gmail's own Undo after a single-page archive. */
-  function offerGmailUndo() {
+  function offerGmailUndo(bulkKind = "archive") {
+    const deleted = bulkKind === "delete";
     showUndoOffer({
       kind: "gmail",
-      message: "Archived this page.",
-      actionLabel: "Undo archive",
+      message: deleted ? "Deleted this page." : "Archived this page.",
+      actionLabel: deleted ? "Undo delete" : "Undo archive",
+      bulkKind,
       durationMs: UNDO_GMAIL_OFFER_MS
     });
   }
@@ -94,17 +96,22 @@
   }
 
   /** Clicks Gmail's Undo link if still present. Never throws. */
-  async function undoSinglePageArchive() {
+  async function undoSinglePageArchive(bulkKind = "archive") {
     try {
       const link = await waitForGmailUndoLink(1500);
       if (!link) {
         setLog("Gmail's Undo link is no longer available.");
-        GC.showToast("Undo no longer available in Gmail. Use Show Archived to restore.", { durationMs: 4000 });
+        GC.showToast(
+          bulkKind === "delete"
+            ? "Undo no longer available in Gmail. Restore from Trash."
+            : "Undo no longer available in Gmail. Use Show Archived to restore.",
+          { durationMs: 4000 }
+        );
         return;
       }
       robustClick(link);
       setLog("Undo sent to Gmail.");
-      GC.showToast("Archive undone");
+      GC.showToast(bulkKind === "delete" ? "Delete undone" : "Archive undone");
     } catch (error) {
       setLog(`Undo failed: ${error?.message || error}`);
       GC.showToast("Undo failed");
@@ -339,7 +346,7 @@
     if (!payload) return;
     if (payload.kind === "gmail") {
       hideUndoOffer();
-      void undoSinglePageArchive();
+      void undoSinglePageArchive(payload.bulkKind);
       return;
     }
     if (payload.kind === "all") {

@@ -1,11 +1,13 @@
-// Delete Open Email: opt-in (popup toggle), moves the open conversation to Trash.
+// Delete Listed Emails: opt-in (popup toggle). Settings, Gmail Delete button lookup,
+// confirmation, and sidebar visibility. The page / all-pages loops live in archive.js.
 (() => {
   const GC = window.__gc;
   if (!GC || GC.skipLoad) return;
 
-  const { DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, GMAIL_TEXT, SELECTORS, STRINGS, findOpenEmailSender,
-    getMailboxToolbar, getOpenEmailSubject, isVisible, recordStats, robustClick, safeStorageGet, setLog,
-    state, waitFor } = GC;
+  const { ACTION_BUTTON_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, GMAIL_TEXT, SELECTORS, STRINGS,
+    getMailboxToolbar, isVisible, safeStorageGet, setLog, state } = GC;
+
+  const DELETE_ACTION_IDS = [ACTION_BUTTON_IDS.DELETE_THIS_PAGE, ACTION_BUTTON_IDS.DELETE_ALL_PAGES];
 
   /** Reads the delete settings from storage (defaults: disabled, confirmation on). */
   function readDeleteSettings() {
@@ -27,7 +29,38 @@
     });
   }
 
-  /** True when el is a Gmail Delete control (never "Delete forever", never our own UI). */
+  /** Throws unless Delete is enabled in the popup; returns the settings. */
+  async function requireDeleteEnabled() {
+    const settings = await readDeleteSettings();
+    if (!settings.enabled) {
+      GC.showToast(STRINGS.toast.deleteDisabled);
+      throw new Error("Delete is turned off. Enable it in the extension popup.");
+    }
+    return settings;
+  }
+
+  /**
+   * Asks before deleting (Delete / Cancel, never auto-proceeds) unless the user
+   * turned on "Skip confirmation". Cancelling stops a running Execute Selected.
+   */
+  async function confirmDelete(message, settings) {
+    if (settings?.skipConfirm) return true;
+    const confirmed = await GC.askProceedConfirmation(message, {
+      proceedLabel: STRINGS.ui.deleteConfirm,
+      stopLabel: STRINGS.ui.cancel
+    });
+    if (confirmed) return true;
+    setLog("Delete cancelled.");
+    if (state.batchExecuting) {
+      state.stopExecutionRequested = true;
+      GC.showToast(STRINGS.toast.executionStopped);
+    } else {
+      GC.showToast(STRINGS.toast.deleteCancelled);
+    }
+    return false;
+  }
+
+  /** True when el is Gmail's Delete control (never "Delete forever", never our own UI). */
   function isGmailDeleteControl(el) {
     if (!isVisible(el)) return false;
     if (el.closest(SELECTORS.ownUiRoots)) return false;
@@ -39,7 +72,7 @@
     return label === GMAIL_TEXT.delete || tooltip === GMAIL_TEXT.delete || act === SELECTORS.deleteAct;
   }
 
-  /** Finds Gmail's Delete button for the open conversation. */
+  /** Finds Gmail's toolbar Delete button. */
   function findDeleteControl() {
     const toolbar = getMailboxToolbar();
     const scopes = toolbar ? [toolbar, document] : [document];
@@ -50,66 +83,27 @@
     return null;
   }
 
-  /** Handles action delete open email. */
-  async function actionDeleteOpenEmail(options = {}) {
-    const manageWorking = !options.skipWorking;
-    const settings = await readDeleteSettings();
-    if (!settings.enabled) {
-      setLog("Delete is turned off. Enable it in the extension popup.");
-      GC.showToast(STRINGS.toast.deleteDisabled);
-      return;
-    }
-    const sender = findOpenEmailSender();
-    if (!sender) {
-      setLog("Open an email first.");
-      return;
-    }
-    const subject = getOpenEmailSubject() || "";
-
-    // Lock other actions while the confirmation is open, too.
-    if (manageWorking) GC.setWorking(true);
-    try {
-      if (!settings.skipConfirm) {
-        const confirmed = await GC.askProceedConfirmation(STRINGS.prompt.deleteOpenEmail(sender, subject), {
-          proceedLabel: STRINGS.ui.deleteConfirm,
-          stopLabel: STRINGS.ui.cancel
-        });
-        if (!confirmed) {
-          setLog("Delete cancelled.");
-          GC.showToast(STRINGS.toast.deleteCancelled);
-          return;
-        }
-      }
-
-      const control = findDeleteControl();
-      if (!control) {
-        throw new Error("Could not find Gmail's Delete button for the open email. Nothing was deleted.");
-      }
-      const heading = document.querySelector(SELECTORS.openThreadHeadingInMain);
-      robustClick(control);
-      // Gmail leaves the thread view once the conversation is in Trash.
-      const left = await waitFor(
-        () => !heading || !heading.isConnected || !document.querySelector(SELECTORS.openThreadHeadingInMain),
-        { timeout: 4000, interval: 100 }
-      );
-      if (!left) {
-        setLog("Clicked Delete, but the email still looks open. Check Gmail before retrying.");
-        return;
-      }
-      recordStats({ deleted: 1 });
-      state.openSender = "";
-      setLog(`Moved to Trash: ${sender}${subject ? ` | ${subject}` : ""}`);
-      GC.showToast(STRINGS.toast.deleted);
-    } catch (error) {
-      setLog(error?.message || "Delete failed.");
-    } finally {
-      if (manageWorking) GC.setWorking(false);
-    }
-  }
-
-  /** Shows or hides the sidebar Delete row. */
+  /**
+   * Shows or hides the delete options. When hidden, any selected delete option is
+   * cleared so Execute Selected can never run it.
+   */
   function setDeleteFeatureVisibility(enabled) {
-    document.getElementById("gc-delete-row")?.classList.toggle("gc-hidden", !enabled);
+    document.querySelectorAll(".gc-delete-row").forEach((row) => row.classList.toggle("gc-hidden", !enabled));
+    const title = document.getElementById("gc-archive-section-title");
+    if (title) title.textContent = enabled ? STRINGS.ui.sectionArchiveOrDelete : STRINGS.ui.sectionArchive;
+    if (enabled) return;
+    let cleared = false;
+    DELETE_ACTION_IDS.forEach((id) => {
+      const input = document.querySelector(`.gc-action-checkbox[data-action-id='${id}']`);
+      if (input?.checked) {
+        input.checked = false;
+        cleared = true;
+      }
+    });
+    if (cleared) {
+      GC.persistActionCheckboxState?.();
+      GC.updateExecuteSelectedState?.();
+    }
   }
 
   /** Applies the stored Delete toggle to the sidebar. */
@@ -119,6 +113,6 @@
     });
   }
 
-  Object.assign(GC, { actionDeleteOpenEmail, findDeleteControl, isGmailDeleteControl, readDeleteSettings,
-    setDeleteFeatureVisibility, syncDeleteFeatureFromStorage });
+  Object.assign(GC, { DELETE_ACTION_IDS, confirmDelete, findDeleteControl, isGmailDeleteControl,
+    readDeleteSettings, requireDeleteEnabled, setDeleteFeatureVisibility, syncDeleteFeatureFromStorage });
 })();
