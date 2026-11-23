@@ -6,6 +6,8 @@ const FAST_MODE_KEY = "fastModeEnabled";
 /** Mirrors src/constants.js: "auto" (default), "light" or "dark". */
 const THEME_KEY = "themePreference";
 const THEMES = ["auto", "light", "dark"];
+/** Set after the popup's first-run welcome has been shown. */
+const ONBOARDING_POPUP_KEY = "onboardingPopupSeen";
 const systemDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 /** Reads keys from chrome.storage.local, resolving {} on error. */
@@ -231,17 +233,68 @@ function initViews() {
   });
 }
 
+/**
+ * First open only: plays the staggered entrance and shows the welcome card, with an
+ * "Open Gmail" shortcut when the active tab is not Gmail. Marked seen straight away,
+ * so closing the popup without clicking "Got it" still counts.
+ */
+function initOnboarding(stored) {
+  if (stored[ONBOARDING_POPUP_KEY] === true) return;
+  chrome.storage.local.set({ [ONBOARDING_POPUP_KEY]: true });
+
+  const welcome = document.getElementById("welcome");
+  if (!welcome) return;
+  document.documentElement.dataset.intro = "";
+  welcome.hidden = false;
+
+  const dismiss = document.getElementById("welcome-dismiss");
+  dismiss?.addEventListener("click", () => {
+    welcome.classList.add("welcome-leaving");
+    // No animationend under reduced motion, so fall back to a timer.
+    const done = () => {
+      welcome.hidden = true;
+      document.getElementById("open-settings")?.focus({ preventScroll: true });
+    };
+    welcome.addEventListener("animationend", done, { once: true });
+    setTimeout(done, 300);
+  });
+
+  const openGmail = document.getElementById("welcome-open-gmail");
+  chrome.tabs?.query({ active: true, currentWindow: true }, (tabs) => {
+    if (chrome.runtime.lastError || !openGmail) return;
+    const url = tabs?.[0]?.url || "";
+    if (url.startsWith("https://mail.google.com/")) return;
+    openGmail.hidden = false;
+    openGmail.addEventListener("click", () => {
+      chrome.tabs.create({ url: "https://mail.google.com/" });
+      window.close();
+    });
+  });
+}
+
+/** Shows the popup once settings are read (avoids a flash of the wrong theme or layout). */
+function reveal() {
+  delete document.documentElement.dataset.loading;
+}
+
 /** Handles init. */
 async function init() {
+  // Never leave the popup blank if something below throws.
+  const revealFallback = setTimeout(reveal, 400);
   initViews();
   initStats();
   initShortcuts();
-  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY, FAST_MODE_KEY, THEME_KEY]);
+  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY, FAST_MODE_KEY, THEME_KEY,
+    ONBOARDING_POPUP_KEY]);
+
+  initTheme(stored);
+  initOnboarding(stored);
+  clearTimeout(revealFallback);
+  reveal();
 
   const checkbox = document.getElementById("show-extension");
   if (checkbox) initShowExtension(checkbox, stored);
 
-  initTheme(stored);
   initFastMode(stored);
   initDeleteSettings(stored);
 }

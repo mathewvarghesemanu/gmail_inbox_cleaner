@@ -690,6 +690,7 @@
     toggle.addEventListener("click", () => {
       if (root.classList.contains("gc-hidden")) {
         openPanelAtToggle(root, toggle);
+        GC.onPanelOpened?.();
       } else {
         root.classList.add("gc-hidden");
       }
@@ -760,6 +761,7 @@
 
     setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
     syncExtensionVisibilityFromStorage();
+    GC.initOnboarding?.();
   }
 
   Object.assign(GC, { applyTheme, askProceedConfirmation, detectGmailTheme, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,

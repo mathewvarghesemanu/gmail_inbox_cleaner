@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-loading>
   <head>
     <meta charset="UTF-8" />
     <title>Gmail Unsubscriber Ondevice</title>
@@ -17,6 +17,19 @@
           </svg>
         </button>
       </header>
+
+      <!-- First open only (popup.js initOnboarding). -->
+      <section id="welcome" class="welcome" aria-labelledby="welcome-title" hidden>
+        <p id="welcome-title" class="welcome-title">Welcome aboard <span class="welcome-wave" aria-hidden="true">👋</span></p>
+        <p class="welcome-text">
+          Open Gmail and click the <span class="welcome-chip" aria-hidden="true">✉</span> button on the right
+          edge. A quick tour shows you around.
+        </p>
+        <div class="welcome-actions">
+          <button type="button" id="welcome-open-gmail" class="welcome-primary" hidden>Open Gmail</button>
+          <button type="button" id="welcome-dismiss" class="welcome-secondary">Got it</button>
+        </div>
+      </section>
 
       <section class="stats" aria-labelledby="stats-title">
         <h2 id="stats-title" class="stats-heading">Today</h2>

@@ -8,6 +8,16 @@ function sendToTab(tabId, message) {
   });
 }
 
+// Existing users updating from a version without onboarding have already found
+// their way around, so skip the first-run welcome and tour for them.
+const ONBOARDING_KEYS = ["onboardingPopupSeen", "onboardingSidebarSeen"];
+chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+  if (reason !== "update" || !previousVersion) return;
+  const [major, minor] = previousVersion.split(".").map(Number);
+  if (major > 2 || (major === 2 && minor >= 5)) return;
+  chrome.storage.local.set(Object.fromEntries(ONBOARDING_KEYS.map((key) => [key, true])));
+});
+
 // Forward every manifest command to the content script as a generic
 // "gc-command" message. Execute Selected keeps the legacy message type so an
 // older content script still in an open Gmail tab keeps working.

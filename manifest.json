@@ -87,6 +87,7 @@
         "src/unsubscribe.js",
         "src/next-email.js",
         "src/ui.js",
+        "src/onboarding.js",
         "src/execute.js",
         "src/shortcuts.js",
         "src/main.js"

@@ -103,6 +103,27 @@
       deleteCancelled: "Delete cancelled",
       deleteDisabled: "Delete is turned off in the extension popup"
     },
+    onboarding: {
+      ariaLabel: "Quick tour",
+      count: (step, total) => `${step} of ${total}`,
+      next: "Next",
+      done: "Got it",
+      skip: "Skip",
+      steps: [
+        {
+          title: "Start with an open email",
+          text: "Tick Unsubscribe and Select similar. They act on the sender of the email you have open."
+        },
+        {
+          title: "Choose where to archive",
+          text: "Archive matching emails on this page only, or across every page of results."
+        },
+        {
+          title: "Run it all at once",
+          text: "Execute Selected runs every ticked step in order. You can stop it at any time."
+        }
+      ]
+    },
     prompt: {
       noUnsubscribe:
         "No unsubscribe button/link found in this email. Proceed with remaining selected actions?",
@@ -132,6 +153,8 @@
   /** Popup theme setting: "auto" (default), "light" or "dark". */
   const THEME_KEY = "themePreference";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
+  /** Set once the sidebar's first-run tour has been finished or skipped. */
+  const ONBOARDING_SIDEBAR_KEY = "onboardingSidebarSeen";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
     ACTION_BUTTON_IDS.UNSUBSCRIBE,
@@ -209,7 +232,7 @@
     AUTO_PROCEED_SECONDS, AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, COMMAND_ACTION_IDS,
     CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DELETE_CONFIRM_SKIP_KEY, DELETE_ENABLED_KEY, FAST_MODE_KEY, DEFAULT_COMMAND_SHORTCUTS,
     EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS,
-    NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, SHORTCUT_HINT_TARGETS,
+    NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, ONBOARDING_SIDEBAR_KEY, SHORTCUT_HINT_TARGETS,
     SHOW_EXTENSION_KEY, SIGNATURE_MATCH_LOG_STYLE, STATS_DAYS_KEPT, STATS_KEY, STOP_EXECUTION_COMMAND,
     STRINGS, THEME_KEY, UNDO_ALL_OFFER_MS, UNDO_GMAIL_OFFER_MS, createEmptyNextTarget, state });
 })();
