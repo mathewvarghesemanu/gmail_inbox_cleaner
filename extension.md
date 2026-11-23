@@ -31,7 +31,6 @@ Sidebar actions:
 Popup settings:
 
 - Show or hide the in-page extension UI
-- Configure `Max pages to scan` for next-email targeting (1–200, default 5; stored as `maxScanPages`)
 
 ## Current workflow
 

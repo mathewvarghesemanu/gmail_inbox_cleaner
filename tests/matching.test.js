@@ -13,7 +13,6 @@ const NAMES = [
   "buildMessageSignature",
   "scoreRowAgainstEmailSignature",
   "findCurrentRowIndex",
-  "normalizeScanPageLimit",
   "escapeHtml"
 ];
 
@@ -409,25 +408,6 @@ describe("findCurrentRowIndex (Gmail DOM rows)", () => {
     expect(messages.every((m) => m.startsWith("Page 2: "))).toBe(true);
     expect(messages[0]).toMatch(/Approach 1\/4/);
     expect(messages.at(-1)).toMatch(/Approach 4\/4.*no match/);
-  });
-});
-
-describe("normalizeScanPageLimit", () => {
-  it.each([
-    ["10", 10],
-    [10, 10],
-    ["12px", 12],
-    [7.9, 7],
-    ["0", 1],
-    ["-5", 1],
-    ["999", 200],
-    [200, 200],
-    ["abc", 5],
-    ["", 5],
-    [null, 5],
-    [undefined, 5]
-  ])("normalizes %j -> %j", (raw, expected) => {
-    expect(fn.normalizeScanPageLimit(raw)).toBe(expected);
   });
 });
 

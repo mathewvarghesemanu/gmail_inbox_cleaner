@@ -50,22 +50,8 @@ body {
   margin: 0;
 }
 
-.number-row {
-  justify-content: space-between;
-  margin-top: 8px;
-}
 
-.number-row input {
-  width: 64px;
-  padding: 2px 4px;
-  font: inherit;
-}
 
-.setting-hint {
-  margin: 4px 2px 0;
-  font-size: 11px;
-  color: #5f6368;
-}
 
 .about {
   margin-top: 12px;

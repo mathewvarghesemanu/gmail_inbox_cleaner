@@ -2,21 +2,11 @@
 // Also loadable from Node: `require("./src/matching.js")`.
 // Pure functions only: no document/window/location/chrome access.
 (function (root) {
-  const DEFAULT_SCAN_PAGE_LIMIT = 5;
-  const MIN_SCAN_PAGE_LIMIT = 1;
-  const MAX_SCAN_PAGE_LIMIT = 200;
   /** Formats elapsed ms. */
   function formatElapsedMs(ms) {
     if (ms < 1000) return `${Math.max(1, Math.round(ms))}ms`;
     const seconds = ms / 1000;
     return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`;
-  }
-
-  /** Normalizes scan page limit. */
-  function normalizeScanPageLimit(raw) {
-    const parsed = Number.parseInt(String(raw ?? ""), 10);
-    if (!Number.isFinite(parsed)) return DEFAULT_SCAN_PAGE_LIMIT;
-    return Math.min(MAX_SCAN_PAGE_LIMIT, Math.max(MIN_SCAN_PAGE_LIMIT, parsed));
   }
 
   /** Handles escape html. */
@@ -380,10 +370,10 @@
       .filter((value) => Number.isFinite(value));
   }
 
-  const api = { DEFAULT_SCAN_PAGE_LIMIT, MAX_SCAN_PAGE_LIMIT, MIN_SCAN_PAGE_LIMIT, PLAIN_ROW_ACCESSORS,
+  const api = { PLAIN_ROW_ACCESSORS,
     buildMessageSignature, escapeHtml, extractSenderFromQuery, findCurrentRowIndex, formatElapsedMs,
     getListContextHashFromHash, getNormalizedWords, getThreadTokenFromHash, getWordOverlapScore, hashString,
-    normalizeEmail, normalizeFingerprintText, normalizeQuery, normalizeScanPageLimit,
+    normalizeEmail, normalizeFingerprintText, normalizeQuery,
     normalizeSubjectForMatch, parseDateSignature, parseLocalizedIntegers, scoreRowAgainstEmailSignature,
     senderSignalMatchesExpected };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

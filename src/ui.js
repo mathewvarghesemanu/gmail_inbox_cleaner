@@ -4,9 +4,9 @@
   if (!GC || GC.skipLoad) return;
 
   const { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, AUTO_PROCEED_SECONDS,
-    AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS, MAX_SCAN_PAGES_KEY,
+    AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS,
     ROOT_POS_KEY, SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
-    installUndoOfferListeners, keepElInView, makeDraggable, normalizeScanPageLimit,
+    installUndoOfferListeners, keepElInView, makeDraggable,
     renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
 
   let successTimer = null;
@@ -189,13 +189,6 @@
     if (state.working) return;
     findOpenEmailSender();
     refreshControlStates();
-  }
-
-  /** Loads the popup-configured scan page limit from storage. */
-  function syncScanPageLimitFromStorage() {
-    safeStorageGet([MAX_SCAN_PAGES_KEY], (result) => {
-      state.maxScanPages = normalizeScanPageLimit(result[MAX_SCAN_PAGES_KEY]);
-    });
   }
 
   /** Returns selected action ids. */
@@ -521,6 +514,6 @@
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
     setExtensionVisibility, setProceedButtonLabel, setWorking, showToast, startProceedAutoCountdown,
-    stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, syncScanPageLimitFromStorage, toastQueue,
+    stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, toastQueue,
     updateExecuteSelectedState });
 })();

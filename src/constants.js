@@ -18,7 +18,6 @@
     selectedConversationsText: "",
     /** Cached "Go to Next Email" target (see createEmptyNextTarget for fields). */
     nextTarget: createEmptyNextTarget(),
-    maxScanPages: 1,
     working: false,
     batchExecuting: false,
     stopExecutionRequested: false,
@@ -107,8 +106,6 @@
     GO_TO_NEXT_PAGE: "gc-next-page"
   };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
-  /** Popup setting: max inbox pages to scan when preparing next-email targeting. */
-  const MAX_SCAN_PAGES_KEY = "maxScanPages";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
@@ -187,7 +184,7 @@
   Object.assign(GC, { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND,
     AUTO_PROCEED_SECONDS, AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, COMMAND_ACTION_IDS,
     CONTEXT_INVALIDATED_MESSAGE, DEFAULT_CHECKED_ACTION_IDS, DEFAULT_COMMAND_SHORTCUTS,
-    EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS, MAX_SCAN_PAGES_KEY,
+    EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS,
     NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, ROOT_POS_KEY, SHORTCUT_HINT_TARGETS,
     SHOW_EXTENSION_KEY, SIGNATURE_MATCH_LOG_STYLE, STATS_DAYS_KEPT, STATS_KEY, STOP_EXECUTION_COMMAND,
     STRINGS, UNDO_ALL_OFFER_MS, UNDO_GMAIL_OFFER_MS, createEmptyNextTarget, state });

@@ -55,7 +55,6 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 - Draggable toggle button — slides along Y-axis, grip icon on hover
 - Buttons and checkboxes disable automatically when no email is open or an action is running
 - Popup setting to show or hide the in-page extension UI
-- Popup setting for `Max pages to scan` (1–200, default 5) when preparing next-email targeting
 
 ## Keyboard shortcuts
 
