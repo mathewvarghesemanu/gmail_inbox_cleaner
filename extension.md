@@ -1,12 +1,12 @@
 # Gmail Unsubscriber Ondevice
 
-Current project state for the version `2.1.0` Chrome Web Store package in this repo.
+Current project state for the version `2.3.1` Chrome Web Store package in this repo.
 
 ## Release snapshot
 
 - Product name: `Gmail Unsubscriber Ondevice`
 - Manifest version: `3`
-- Current package version in `manifest.json`: `2.1.0`
+- Current package version in `manifest.json`: `2.3.1`
 - Supported surface: Gmail web only (`https://mail.google.com/*`)
 - Primary UI: in-page Gmail sidebar plus extension popup
 
@@ -24,13 +24,14 @@ Sidebar actions:
 - `Archive Listed Emails in All Pages`
 - `Go to Inbox`
 - `Go to Next Email`
-- `Execute Selected`
+- `Show Archived`
+- `Execute Selected` (also bound to `Ctrl+Shift+E` / `Command+Shift+E`, rebindable at `chrome://extensions/shortcuts`)
 - `Stop Execution`
 
 Popup settings:
 
 - Show or hide the in-page extension UI
-- Configure `Max pages to scan` for next-email targeting
+- Configure `Max pages to scan` for next-email targeting (1–200, default 5; stored as `maxScanPages`)
 
 ## Current workflow
 
@@ -62,10 +63,11 @@ Popup settings:
 - `content.js`: Gmail sidebar, batch actions, Gmail DOM automation, safety checks
 - `styles.css`: in-page sidebar styles
 - `popup.html`, `popup.js`, `popup.css`: popup UI and local settings
-- `background.js`: dev auto-reload support
+- `background.js`: service worker that forwards the Execute Selected keyboard shortcut to the Gmail tab
+- `scripts/package.sh`: builds the release zip from runtime files
 - `docs/PRIVACY_POLICY.md`: privacy statement for store submission
 
 ## Notes for this publish
 
 - The codebase currently includes batch execution, stop controls, next-email targeting, and popup-based local settings in addition to the original unsubscribe/select/archive flow.
-- This repo is ready to package as version `2.1.0`.
+- This repo is ready to package as version `2.3.1`.

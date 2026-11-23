@@ -1,0 +1,76 @@
+<!doctype html>
+<!--
+  Hand-built approximation of Gmail's conversation list (inbox) DOM.
+  Only the attributes/classes content.js queries are reproduced:
+    input[name='q'], div[gh='tl'], div[gh='mtb'], div[role='main'], div[role='tabpanel'],
+    tr.zA[role='row'][jscontroller='ZdOxDb'], span.yP[email][name], span.bog, span.y2,
+    td.xW span[title], [data-legacy-thread-id], a[href*='#'].
+-->
+<html>
+  <head>
+    <title>Inbox - Gmail</title>
+  </head>
+  <body>
+    <header>
+      <form role="search">
+        <input name="q" aria-label="Search mail" value="" />
+      </form>
+    </header>
+    <div role="main">
+      <div gh="tl">
+        <div class="Cq aqL" gh="mtb">
+          <div role="button" aria-label="Select">
+            <span class="T-Jo J-J5-Ji" role="checkbox" aria-checked="false"></span>
+          </div>
+          <div role="button" aria-label="Archive" data-tooltip="Archive"></div>
+          <div role="button" aria-label="Older" data-tooltip="Older"></div>
+        </div>
+        <div role="tabpanel">
+          <table>
+            <tbody>
+              <tr class="zA zE" role="row" jscontroller="ZdOxDb" id="row-0">
+                <td class="oZ-x3 xY"><div role="checkbox" aria-checked="false"></div></td>
+                <td class="yX xY">
+                  <span class="yP" email="alerts@bank.example" name="My Bank">My Bank</span>
+                </td>
+                <td class="xY a4W">
+                  <a href="#inbox/FMfcgzQAAAAA0000">
+                    <span class="bog">Your statement is ready</span>
+                  </a>
+                  <span class="y2"> - View your October statement online</span>
+                </td>
+                <td class="xW xY"><span title="Mon, 3 Nov 2025, 09:15">Nov 3</span></td>
+              </tr>
+              <tr class="zA yO" role="row" jscontroller="ZdOxDb" id="row-1">
+                <td class="oZ-x3 xY"><div role="checkbox" aria-checked="false"></div></td>
+                <td class="yX xY">
+                  <span class="yP" email="News@Shop.Example" name="Shop Newsletter">Shop Newsletter</span>
+                </td>
+                <td class="xY a4W">
+                  <a href="#inbox/FMfcgzQBBBBB1111">
+                    <span class="bog"><span data-legacy-thread-id="18c0000000000b02">Weekly deals: 50% off everything</span></span>
+                  </a>
+                  <span class="y2"> - Shop now before the sale ends</span>
+                </td>
+                <td class="xW xY"><span title="Tue, 4 Nov 2025, 10:42">Nov 4</span></td>
+              </tr>
+              <tr class="zA yO" role="row" jscontroller="ZdOxDb" id="row-2">
+                <td class="oZ-x3 xY"><div role="checkbox" aria-checked="false"></div></td>
+                <td class="yX xY">
+                  <span class="yP" email="news@shop.example" name="Shop Newsletter">Shop Newsletter</span>
+                </td>
+                <td class="xY a4W">
+                  <a href="#inbox/FMfcgzQCCCCC2222">
+                    <span class="bog"><span data-legacy-thread-id="18c0000000000c03">Last chance: free shipping ends tonight</span></span>
+                  </a>
+                  <span class="y2"> - Order by midnight</span>
+                </td>
+                <td class="xW xY"><span title="Wed, 5 Nov 2025, 18:01">Nov 5</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

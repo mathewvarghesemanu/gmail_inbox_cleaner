@@ -14,6 +14,7 @@ Gmail Unsubscriber Ondevice does not collect, sell, or share your personal data.
 - No data is sent to external servers.
 - No analytics or tracking SDKs are used.
 - No account credentials, message bodies, or contact lists are transmitted outside your browser.
+- The extension keeps simple usage counts (senders unsubscribed, conversations and pages archived, batches run, with per-day totals for the last 30 days) in `chrome.storage.local` so the popup can show them. These counts contain no email content, addresses, or identifiers, never leave your device, and can be cleared at any time with the popup's "Reset stats" button.
 
 ## Data sharing
 
@@ -22,7 +23,7 @@ Gmail Unsubscriber Ondevice does not collect, sell, or share your personal data.
 
 ## User control
 
-- All actions are initiated by explicit button clicks in the extension UI.
+- All actions are initiated by explicit button clicks in the extension UI or by keyboard shortcuts you trigger.
 - You can disable or remove the extension at any time from `chrome://extensions`.
 
 ## Changes to this policy
