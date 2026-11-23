@@ -496,7 +496,7 @@
   z-index: 2147483647;
   border: 1px solid #0b57d0;
   border-radius: 999px;
-  padding: 10px 14px;
+  padding: 8px 10px;
   font-size: 13px;
   font-weight: 600;
   color: #ffffff;
@@ -524,6 +524,39 @@
 
 #gc-toggle:hover #gc-toggle-grip {
   opacity: 0.85;
+}
+
+.gc-toggle-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.gc-toggle-label {
+  max-width: 0;
+  /* Cancel the flex gap while collapsed. */
+  margin-left: -6px;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition: max-width 180ms ease, margin-left 180ms ease, opacity 180ms ease;
+}
+
+#gc-toggle:hover .gc-toggle-label,
+#gc-toggle:focus-visible .gc-toggle-label {
+  max-width: 180px;
+  margin-left: 0;
+  opacity: 1;
+}
+
+#gc-toggle:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gc-toggle-label {
+    transition: none;
+  }
 }
 
 #gc-root.gc-hidden {

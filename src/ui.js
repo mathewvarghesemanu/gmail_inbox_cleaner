@@ -410,11 +410,13 @@
 
   /** Builds the floating toggle button. */
   function buildToggle() {
+    // Icon-only by default so it covers less of Gmail; the label slides out on hover/focus.
     return h(
       "button",
-      { id: "gc-toggle", type: "button" },
+      { id: "gc-toggle", type: "button", "aria-label": STRINGS.ui.toggle, title: STRINGS.ui.toggle },
       h("span", { id: "gc-toggle-grip", "aria-hidden": "true" }, "\u283f"),
-      STRINGS.ui.toggle
+      h("span", { class: "gc-toggle-icon", "aria-hidden": "true" }, "\u2709"),
+      h("span", { class: "gc-toggle-label", "aria-hidden": "true" }, STRINGS.ui.toggle)
     );
   }
 
