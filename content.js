@@ -2968,6 +2968,8 @@
   /** Mounts sidebar. */
   function mountSidebar() {
     if (state.extensionContextInvalidated) return;
+    // Gmail print view (Print all / print thread) — never inject UI there.
+    if (new URLSearchParams(location.search).get("view") === "pt") return;
     if (document.getElementById("gc-root") && document.getElementById("gc-toggle")) {
       renderNextEmailTargetSection();
       syncExtensionVisibilityFromStorage();
