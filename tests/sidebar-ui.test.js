@@ -149,3 +149,24 @@ describe("status area", () => {
     expect(toast.getAttribute("role")).toBe("alert");
   });
 });
+
+describe("execute / stop button", () => {
+  it("shows Stop in place of Execute only while a batch runs", () => {
+    const GC = load();
+    const execute = document.getElementById("gc-execute-selected");
+    const stop = document.getElementById("gc-stop-execution");
+    expect(execute.classList.contains("gc-hidden")).toBe(false);
+    expect(stop.classList.contains("gc-hidden")).toBe(true);
+
+    GC.state.batchExecuting = true;
+    GC.setWorking(true);
+    expect(execute.classList.contains("gc-hidden")).toBe(true);
+    expect(stop.classList.contains("gc-hidden")).toBe(false);
+    expect(stop.disabled).toBe(false);
+
+    GC.state.batchExecuting = false;
+    GC.setWorking(false);
+    expect(execute.classList.contains("gc-hidden")).toBe(false);
+    expect(stop.classList.contains("gc-hidden")).toBe(true);
+  });
+});

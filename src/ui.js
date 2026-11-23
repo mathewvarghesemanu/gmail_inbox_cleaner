@@ -302,8 +302,11 @@
     const hasSelections = getSelectedActionIds().length > 0;
     executeButton.dataset.ready = hasSelections ? "true" : "false";
     executeButton.disabled = state.working || !hasSelections;
+    // Execute and Stop share one slot: Stop replaces Execute while a batch runs.
+    executeButton.classList.toggle("gc-hidden", state.batchExecuting);
     if (stopButton) {
       stopButton.disabled = !state.batchExecuting;
+      stopButton.classList.toggle("gc-hidden", !state.batchExecuting);
     }
   }
 
@@ -502,7 +505,7 @@
           { class: "gc-btn gc-btn-execute", id: "gc-execute-selected", "data-ready": "false", disabled: true },
           ui.executeSelected
         ),
-        h("button", { class: "gc-btn gc-btn-stop", id: "gc-stop-execution", disabled: true }, ui.stopExecution)
+        h("button", { class: "gc-btn gc-btn-stop gc-hidden", id: "gc-stop-execution", disabled: true }, ui.stopExecution)
       ),
       // Single status area: confirmation prompts, messages and undo offers.
       h(
