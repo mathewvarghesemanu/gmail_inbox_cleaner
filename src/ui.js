@@ -194,13 +194,28 @@
     updateExecuteSelectedState();
   }
 
-  /** Explains why actions are disabled when no email is open. */
+  /**
+   * Shows the detected sender (the target of every sender-based action) so it can be
+   * checked before running anything, or explains why actions are disabled.
+   */
   function renderContextBar() {
     const bar = document.getElementById("gc-context");
     if (!bar) return;
-    const emailOpen = !!state.openSender;
-    bar.textContent = emailOpen ? "" : STRINGS.ui.openEmailHint;
-    bar.classList.toggle("gc-hidden", emailOpen);
+    const sender = state.openSender;
+    // Only rewrite on change: main.js re-runs this from a childList MutationObserver.
+    if (bar.dataset.sender === sender && bar.firstChild) return;
+    bar.dataset.sender = sender;
+    bar.classList.toggle("gc-context-sender", !!sender);
+    if (!sender) {
+      bar.textContent = STRINGS.ui.openEmailHint;
+      bar.removeAttribute("title");
+      return;
+    }
+    bar.replaceChildren(
+      h("span", { class: "gc-context-label" }, STRINGS.ui.senderLabel),
+      h("span", { class: "gc-context-value" }, sender)
+    );
+    bar.title = sender;
   }
 
   /** Detects current email open state and refreshes controls. No-op while action in progress. */
@@ -415,7 +430,7 @@
       h(
         "div",
         { id: "gc-body" },
-        h("p", { id: "gc-context", class: "gc-hidden" }),
+        h("p", { id: "gc-context", "aria-live": "polite" }),
         h(
           "div",
           { class: "gc-section gc-section-prepare" },

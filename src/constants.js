@@ -46,6 +46,7 @@
       minimizeAria: "Minimize panel",
       working: "Working...",
       openEmailHint: "Open an email to enable actions.",
+      senderLabel: "Sender",
       sectionPrepare: "Prepare",
       sectionArchive: "Archive",
       sectionArchiveOrDelete: "Archive or Delete",

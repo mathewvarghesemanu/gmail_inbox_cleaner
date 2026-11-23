@@ -191,6 +191,33 @@
   text-align: center;
 }
 
+#gc-context.gc-context-sender {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c2e7ff;
+  background: #ecf6ff;
+  color: #0b57d0;
+  text-align: left;
+}
+
+.gc-context-label {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.gc-context-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
 .gc-action-row {
   display: grid;
   grid-template-columns: auto 1fr;
