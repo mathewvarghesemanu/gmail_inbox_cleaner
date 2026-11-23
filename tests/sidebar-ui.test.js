@@ -82,8 +82,13 @@ describe("next email preview", () => {
     enableInputs();
     const goNext = input(GC.ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE);
     goNext.checked = true;
-    GC.state.nextTarget = { ...GC.createEmptyNextTarget(), url: "https://mail.google.com/#inbox/x",
-      sender: "a@b.example", subject: "Hello", threadToken: "SECRET-TOKEN" };
+    GC.state.nextTarget = {
+      ...GC.createEmptyNextTarget(),
+      url: "https://mail.google.com/#inbox/x",
+      sender: "a@b.example",
+      subject: "Hello",
+      threadToken: "SECRET-TOKEN"
+    };
     GC.renderNextEmailTargetSection();
     const section = document.getElementById("gc-next-target-section");
     expect(section.classList.contains("gc-hidden")).toBe(false);
