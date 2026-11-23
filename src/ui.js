@@ -11,6 +11,7 @@
 
   let proceedConfirmationResolver = null;
   let proceedAutoCountdownTimer = null;
+  let focusBeforeConfirm = null;
   const toastQueue = [];
   let toastQueueActive = false;
   /** Shows a success message in the status area. */
@@ -125,8 +126,28 @@
   function resolveProceedConfirmation(result) {
     const resolver = proceedConfirmationResolver;
     proceedConfirmationResolver = null;
+    const box = document.getElementById("gc-confirm");
+    const focusWasInPrompt = !!box && box.contains(document.activeElement);
     hideProceedConfirmation();
+    // Give focus back to where it was (if it is still on the page).
+    if (focusWasInPrompt && focusBeforeConfirm?.isConnected) focusBeforeConfirm.focus({ preventScroll: true });
+    focusBeforeConfirm = null;
     if (resolver) resolver(result);
+  }
+
+  /**
+   * Escape inside the panel cancels an open confirmation prompt (same as Stop /
+   * Cancel). Focus is moved into the prompt when it opens, so this covers the
+   * normal keyboard flow without intercepting Escape elsewhere in Gmail.
+   */
+  function installConfirmEscapeListener(root) {
+    root.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !proceedConfirmationResolver) return;
+      // Keep Gmail from also handling this Escape (e.g. closing the open thread).
+      event.preventDefault();
+      event.stopPropagation();
+      resolveProceedConfirmation(false);
+    });
   }
 
   /** Handles ask proceed confirmation. */
@@ -151,6 +172,12 @@
     if (options.proceedLabel) setProceedButtonLabel(options.proceedLabel);
     const stopBtn = document.getElementById("gc-confirm-stop");
     if (stopBtn) stopBtn.textContent = options.stopLabel || STRINGS.ui.stop;
+
+    // Move focus to the prompt; destructive prompts default to the safe choice.
+    const active = document.activeElement;
+    focusBeforeConfirm = active && active !== document.body ? active : null;
+    const focusTarget = options.proceedLabel ? stopBtn : document.getElementById("gc-confirm-proceed");
+    focusTarget?.focus({ preventScroll: true });
 
     return new Promise((resolve) => {
       proceedConfirmationResolver = resolve;
@@ -598,6 +625,7 @@
       resolveProceedConfirmation(false);
     });
     installUndoOfferListeners();
+    installConfirmEscapeListener(root);
     GC.syncDeleteFeatureFromStorage();
     restoreActionCheckboxState();
     GC.loadShortcutHints();

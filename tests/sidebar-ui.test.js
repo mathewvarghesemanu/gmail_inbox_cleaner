@@ -170,3 +170,24 @@ describe("execute / stop button", () => {
     expect(stop.classList.contains("gc-hidden")).toBe(true);
   });
 });
+
+describe("confirmation prompt keyboard handling", () => {
+  it("focuses Cancel for destructive prompts and Escape cancels", async () => {
+    const GC = load();
+    const pending = GC.askProceedConfirmation("Delete 3 conversations?", {
+      proceedLabel: "Delete",
+      stopLabel: "Cancel"
+    });
+    expect(document.activeElement).toBe(document.getElementById("gc-confirm-stop"));
+    document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    await expect(pending).resolves.toBe(false);
+    expect(document.getElementById("gc-confirm").classList.contains("gc-confirm-visible")).toBe(false);
+  });
+
+  it("focuses Proceed for non-destructive prompts", () => {
+    const GC = load();
+    void GC.askProceedConfirmation("Proceed with remaining actions?");
+    expect(document.activeElement).toBe(document.getElementById("gc-confirm-proceed"));
+    GC.resolveProceedConfirmation(false);
+  });
+});
