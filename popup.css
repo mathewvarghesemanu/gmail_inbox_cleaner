@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 html {
@@ -50,6 +50,24 @@ body {
   margin: 0;
 }
 
+.appearance {
+  margin-top: 12px;
+  background: #ffffff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.appearance h2 {
+  margin: 0;
+  font-size: 12px;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .speed {
   margin-top: 12px;
   background: #ffffff;
@@ -89,6 +107,51 @@ body {
   border-left-width: 4px;
   border-radius: 6px;
   padding: 8px;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented label {
+  position: relative;
+  cursor: pointer;
+}
+
+.segmented label + label {
+  border-left: 1px solid #dadce0;
+}
+
+/* Visually hidden but focusable radio; the span is the visible segment. */
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.segmented span {
+  display: block;
+  padding: 7px 4px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #3c4043;
+}
+
+.segmented input:checked + span {
+  background: #0b57d0;
+  color: #ffffff;
+}
+
+.segmented input:focus-visible + span {
+  outline: 2px solid #0b57d0;
+  outline-offset: -3px;
 }
 
 .caution[hidden] {
@@ -351,89 +414,115 @@ body {
   background: #f1f3f4;
 }
 
-/* Dark theme: follows the browser / OS setting. */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #202124;
-    color: #e8eaed;
-  }
+/* Dark theme: html[data-theme] is set by popup.js from the Theme setting
+   (Auto resolves from the system setting). */
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
 
-  .toggle-row,
-  .speed,
-  .danger-zone,
-  .shortcuts,
-  .stats,
-  .about {
-    background: #28292c;
-    border-color: #3c4043;
-  }
+html[data-theme="dark"] body {
+  background: #202124;
+  color: #e8eaed;
+}
 
-  .danger-zone h2,
-  .speed h2,
-  .setting-help,
-  .shortcuts h2,
-  .stats h2,
-  .about h2,
-  .stats-caption,
-  .stats-note,
-  .stat-tile dt,
-  .stat-total,
-  .shortcut-empty {
-    color: #9aa0a6;
-  }
+html[data-theme="dark"] .toggle-row,
+html[data-theme="dark"] .speed,
+html[data-theme="dark"] .danger-zone,
+html[data-theme="dark"] .shortcuts,
+html[data-theme="dark"] .stats,
+html[data-theme="dark"] .about {
+  background: #28292c;
+  border-color: #3c4043;
+}
 
-  .stat-tile {
-    background: #202124;
-    border-color: #3c4043;
-  }
+html[data-theme="dark"] .danger-zone h2,
+html[data-theme="dark"] .speed h2,
+html[data-theme="dark"] .setting-help,
+html[data-theme="dark"] .shortcuts h2,
+html[data-theme="dark"] .stats h2,
+html[data-theme="dark"] .about h2,
+html[data-theme="dark"] .stats-caption,
+html[data-theme="dark"] .stats-note,
+html[data-theme="dark"] .stat-tile dt,
+html[data-theme="dark"] .stat-total,
+html[data-theme="dark"] .shortcut-empty {
+  color: #9aa0a6;
+}
 
-  .stat-today {
-    color: #e8eaed;
-  }
+html[data-theme="dark"] .stat-tile {
+  background: #202124;
+  border-color: #3c4043;
+}
 
-  .stat-total span {
-    color: #bdc1c6;
-  }
+html[data-theme="dark"] .stat-today {
+  color: #e8eaed;
+}
 
-  .shortcut-list kbd {
-    background: #303134;
-    border-color: #5f6368;
-    color: #e8eaed;
-  }
+html[data-theme="dark"] .stat-total span {
+  color: #bdc1c6;
+}
 
-  .secondary-button,
-  .stats-reset {
-    background: #303134;
-    border-color: #5f6368;
-    color: #e8eaed;
-  }
+html[data-theme="dark"] .shortcut-list kbd {
+  background: #303134;
+  border-color: #5f6368;
+  color: #e8eaed;
+}
 
-  .secondary-button {
-    color: #8ab4f8;
-  }
+html[data-theme="dark"] .secondary-button,
+html[data-theme="dark"] .stats-reset {
+  background: #303134;
+  border-color: #5f6368;
+  color: #e8eaed;
+}
 
-  .secondary-button:hover,
-  .stats-reset:hover {
-    background: #3c4043;
-  }
+html[data-theme="dark"] .secondary-button {
+  color: #8ab4f8;
+}
 
-  .danger-note {
-    color: #f28b82;
-  }
+html[data-theme="dark"] .secondary-button:hover,
+html[data-theme="dark"] .stats-reset:hover {
+  background: #3c4043;
+}
 
-  .caution {
-    background: #2b2612;
-    border-color: #fdd663;
-    color: #fdd663;
-  }
+html[data-theme="dark"] .danger-note {
+  color: #f28b82;
+}
 
-  .disclaimer {
-    background: #2b2612;
-    border-color: #5c4a00;
-    color: #e3c77a;
-  }
+html[data-theme="dark"] .caution {
+  background: #2b2612;
+  border-color: #fdd663;
+  color: #fdd663;
+}
 
-  .support-link {
-    color: #8ab4f8;
-  }
+html[data-theme="dark"] .disclaimer {
+  background: #2b2612;
+  border-color: #5c4a00;
+  color: #e3c77a;
+}
+
+html[data-theme="dark"] .support-link {
+  color: #8ab4f8;
+}
+
+html[data-theme="dark"] .appearance {
+  background: #28292c;
+  border-color: #3c4043;
+}
+
+html[data-theme="dark"] .appearance h2 {
+  color: #9aa0a6;
+}
+
+html[data-theme="dark"] .segmented,
+html[data-theme="dark"] .segmented label + label {
+  border-color: #5f6368;
+}
+
+html[data-theme="dark"] .segmented span {
+  color: #e8eaed;
+}
+
+html[data-theme="dark"] .segmented input:checked + span {
+  background: #8ab4f8;
+  color: #062e6f;
 }

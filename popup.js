@@ -3,6 +3,10 @@ const SHOW_EXTENSION_KEY = "showExtensionEnabled";
 const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
 const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
 const FAST_MODE_KEY = "fastModeEnabled";
+/** Mirrors src/constants.js: "auto" (default), "light" or "dark". */
+const THEME_KEY = "themePreference";
+const THEMES = ["auto", "light", "dark"];
+const systemDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 /** Reads keys from chrome.storage.local, resolving {} on error. */
 function storageGet(keys) {
@@ -171,15 +175,42 @@ function initFastMode(stored) {
   });
 }
 
+/** Applies a theme setting to the popup; Auto resolves from the system setting. */
+function applyPopupTheme(preference) {
+  const dark = preference === "dark" || (preference !== "light" && systemDarkQuery.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+}
+
+/**
+ * Wires the Theme setting. The sidebar picks up changes live via
+ * chrome.storage.onChanged; the popup re-themes immediately.
+ */
+function initTheme(stored) {
+  const radios = [...document.querySelectorAll("input[name='theme']")];
+  let preference = THEMES.includes(stored[THEME_KEY]) ? stored[THEME_KEY] : "auto";
+  radios.forEach((radio) => {
+    radio.checked = radio.value === preference;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      preference = radio.value;
+      chrome.storage.local.set({ [THEME_KEY]: preference });
+      applyPopupTheme(preference);
+    });
+  });
+  applyPopupTheme(preference);
+  systemDarkQuery.addEventListener("change", () => applyPopupTheme(preference));
+}
+
 /** Handles init. */
 async function init() {
   initStats();
   initShortcuts();
-  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY, FAST_MODE_KEY]);
+  const stored = await storageGet([SHOW_EXTENSION_KEY, DELETE_ENABLED_KEY, DELETE_CONFIRM_SKIP_KEY, FAST_MODE_KEY, THEME_KEY]);
 
   const checkbox = document.getElementById("show-extension");
   if (checkbox) initShowExtension(checkbox, stored);
 
+  initTheme(stored);
   initFastMode(stored);
   initDeleteSettings(stored);
 }

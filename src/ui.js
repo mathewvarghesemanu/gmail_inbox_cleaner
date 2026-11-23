@@ -5,7 +5,7 @@
 
   const { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, AUTO_PROCEED_SECONDS,
     AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS,
-    FAST_MODE_KEY, SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
+    FAST_MODE_KEY, SHOW_EXTENSION_KEY, STRINGS, THEME_KEY, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
     applyElPosition, installUndoOfferListeners, makeDraggable,
     renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
 
@@ -309,11 +309,15 @@
     return luminance < 0.4 ? "dark" : "light";
   }
 
-  /** Applies the detected theme to the sidebar (attribute only: not seen by the childList observer). */
+  /**
+   * Applies the theme to the sidebar: the popup's Light / Dark setting, or Gmail's
+   * own theme for Auto (attribute only: not seen by the childList observer).
+   */
   function applyTheme() {
     const root = document.getElementById("gc-root");
     if (!root) return;
-    const theme = detectGmailTheme();
+    const preference = state.themePreference;
+    const theme = preference === "light" || preference === "dark" ? preference : detectGmailTheme();
     if (root.dataset.gcTheme !== theme) root.dataset.gcTheme = theme;
   }
 
@@ -396,6 +400,17 @@
       .join("")
       .trim();
     return text || fallback;
+  }
+
+  /** Applies the popup's theme setting ("auto", "light" or "dark"). */
+  function setThemePreference(value) {
+    state.themePreference = value === "light" || value === "dark" ? value : "auto";
+    applyTheme();
+  }
+
+  /** Reads the theme setting from storage. */
+  function syncThemeFromStorage() {
+    safeStorageGet([THEME_KEY], (result) => setThemePreference(result?.[THEME_KEY]));
   }
 
   /** Applies the Fast mode setting and shows / hides the header badge. */
@@ -724,6 +739,7 @@
     installConfirmEscapeListener(root);
     GC.syncDeleteFeatureFromStorage();
     syncFastModeFromStorage();
+    syncThemeFromStorage();
     restoreActionCheckboxState();
     GC.loadShortcutHints();
     renderNextEmailTargetSection();
@@ -743,7 +759,7 @@
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, renderContextBar, reportError, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
-    setExtensionVisibility, setFastMode, setProceedButtonLabel, setProgress, setWorking, setWorkingStep, showToast, startProceedAutoCountdown,
+    setExtensionVisibility, setFastMode, setThemePreference, setProceedButtonLabel, setProgress, setWorking, setWorkingStep, showToast, startProceedAutoCountdown,
     stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, toastQueue,
     updateExecuteSelectedState });
 })();

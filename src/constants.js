@@ -23,6 +23,8 @@
     stopExecutionRequested: false,
     /** Fast mode (popup setting): skip settle pauses and auto-proceed countdowns. */
     fastMode: false,
+    /** Theme setting from the popup: "auto" follows Gmail's theme. */
+    themePreference: "auto",
     extensionContextInvalidated: false
   };
   /**
@@ -125,6 +127,8 @@
   const DELETE_ENABLED_KEY = "deleteOpenEmailEnabled";
   const DELETE_CONFIRM_SKIP_KEY = "deleteSkipConfirmation";
   const FAST_MODE_KEY = "fastModeEnabled";
+  /** Popup theme setting: "auto" (default), "light" or "dark". */
+  const THEME_KEY = "themePreference";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
@@ -205,5 +209,5 @@
     EXECUTE_SELECTED_COMMAND, EXECUTE_SELECTED_SHORTCUT_LABEL, IS_MAC, LABELS,
     NEXT_EMAIL_TARGET_CACHE_KEY, NEXT_TARGET_CACHE_VERSION, SHORTCUT_HINT_TARGETS,
     SHOW_EXTENSION_KEY, SIGNATURE_MATCH_LOG_STYLE, STATS_DAYS_KEPT, STATS_KEY, STOP_EXECUTION_COMMAND,
-    STRINGS, UNDO_ALL_OFFER_MS, UNDO_GMAIL_OFFER_MS, createEmptyNextTarget, state });
+    STRINGS, THEME_KEY, UNDO_ALL_OFFER_MS, UNDO_GMAIL_OFFER_MS, createEmptyNextTarget, state });
 })();
