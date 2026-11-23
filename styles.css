@@ -500,7 +500,7 @@
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  right: 20px;
+  right: 12px;
   z-index: 2147483647;
   border: 1px solid #0b57d0;
   border-radius: 999px;

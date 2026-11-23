@@ -5,8 +5,8 @@
 
   const { ACTION_BUTTON_IDS, ACTION_CHECKBOX_STATE_KEY, AUTO_PROCEED_SECONDS,
     AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT, DEFAULT_CHECKED_ACTION_IDS, LABELS,
-    ROOT_POS_KEY, SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
-    installUndoOfferListeners, keepElInView, makeDraggable,
+    SHOW_EXTENSION_KEY, STRINGS, actionShowArchived, findOpenEmailSender, formatElapsedMs, h,
+    applyElPosition, installUndoOfferListeners, makeDraggable,
     renderNextEmailTargetSection, safeStorageGet, safeStorageSet, setLog, sleep, state } = GC;
 
   let proceedConfirmationResolver = null;
@@ -606,6 +606,22 @@
     return root;
   }
 
+  /**
+   * Opens the panel anchored to the toggle: same right edge, vertically centred on
+   * the toggle (which can be dragged up and down), clamped to the viewport.
+   */
+  function openPanelAtToggle(root, toggle) {
+    // Measure the toggle before opening: the open panel hides it (gc-toggle-covered).
+    const anchor = toggle.getBoundingClientRect();
+    root.classList.remove("gc-hidden");
+    const margin = 8;
+    const centred = anchor.top + anchor.height / 2 - root.offsetHeight / 2;
+    const maxTop = Math.max(margin, window.innerHeight - root.offsetHeight - margin);
+    const top = Math.min(Math.max(centred, margin), maxTop);
+    const left = anchor.right - root.offsetWidth;
+    applyElPosition(root, top, left);
+  }
+
   /** Mounts sidebar. */
   function mountSidebar() {
     if (state.extensionContextInvalidated) return;
@@ -624,8 +640,11 @@
     document.body.appendChild(root);
 
     toggle.addEventListener("click", () => {
-      root.classList.toggle("gc-hidden");
-      keepElInView(root);
+      if (root.classList.contains("gc-hidden")) {
+        openPanelAtToggle(root, toggle);
+      } else {
+        root.classList.add("gc-hidden");
+      }
     });
     // Hide the toggle while the panel is open (both sit at the right-middle edge).
     // Watching the class covers every path: toggle, minimize, popup hide setting.
@@ -686,7 +705,8 @@
     applyTheme();
 
     makeDraggable(toggle, null, null, "y");
-    makeDraggable(root, ROOT_POS_KEY, document.getElementById("gc-header"));
+    // No saved position: the panel always opens next to the toggle (openPanelAtToggle).
+    makeDraggable(root, null, document.getElementById("gc-header"));
 
     setLog(`Ready. Open an email, then click '${LABELS.SELECT_LIKE_OPEN_EMAIL}'.`);
     syncExtensionVisibilityFromStorage();

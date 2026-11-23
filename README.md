@@ -58,7 +58,7 @@ A Chrome extension that adds a Gmail-native cleanup sidebar for unsubscribe, sen
 - Keyboard shortcuts (see below), shown on the sidebar buttons
 - Popup `Keyboard shortcuts` — lists the assigned shortcuts, with a button that opens `chrome://extensions/shortcuts`
 - Popup `Stats` — tiles with today / all-time counts of senders unsubscribed, conversations archived, pages archived and batches run, with a `Reset stats` button. Stored only in `chrome.storage.local` (per-day totals kept for 30 days); never leaves the device.
-- Draggable sidebar panel — drag by header, position persists across sessions
+- Sidebar panel opens next to the toggle button (same right edge, centred on the toggle) and can be dragged by its header while open
 - Draggable toggle button — icon-only, shows its label on hover; slides along Y-axis, grip icon on hover
 - Buttons and checkboxes disable automatically when no email is open (with an "Open an email" hint) or an action is running
 - Popup setting to show or hide the in-page extension UI

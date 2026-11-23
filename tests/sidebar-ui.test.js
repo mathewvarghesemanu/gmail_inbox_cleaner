@@ -255,3 +255,35 @@ describe("panel and toggle placement", () => {
     expect(toggle.classList.contains("gc-toggle-covered")).toBe(false);
   });
 });
+
+describe("opening the panel from the toggle", () => {
+  it("aligns the panel's right edge with the toggle and centres it on the toggle", () => {
+    load();
+    const toggle = document.getElementById("gc-toggle");
+    const root = document.getElementById("gc-root");
+    vi.spyOn(toggle, "getBoundingClientRect").mockReturnValue({ top: 580, height: 40, right: 1428, left: 1380 });
+    Object.defineProperty(root, "offsetWidth", { configurable: true, value: 320 });
+    Object.defineProperty(root, "offsetHeight", { configurable: true, value: 400 });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 900 });
+
+    toggle.click();
+    expect(root.classList.contains("gc-hidden")).toBe(false);
+    expect(root.style.left).toBe(`${1428 - 320}px`);
+    expect(root.style.top).toBe(`${600 - 200}px`);
+  });
+
+  it("keeps the panel on screen when the toggle is near the bottom", () => {
+    load();
+    const toggle = document.getElementById("gc-toggle");
+    const root = document.getElementById("gc-root");
+    vi.spyOn(toggle, "getBoundingClientRect").mockReturnValue({ top: 860, height: 40, right: 1428, left: 1380 });
+    Object.defineProperty(root, "offsetWidth", { configurable: true, value: 320 });
+    Object.defineProperty(root, "offsetHeight", { configurable: true, value: 400 });
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 900 });
+
+    toggle.click();
+    expect(root.style.top).toBe(`${900 - 400 - 8}px`);
+  });
+});
