@@ -670,3 +670,184 @@
 #gc-undo-dismiss:hover {
   opacity: 1;
 }
+
+
+/* Dark theme: follows Gmail's theme (see applyTheme in src/ui.js). */
+#gc-root[data-gc-theme="dark"] {
+  background: #202124;
+  border-color: #3c4043;
+  color: #e8eaed;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-header {
+  background: linear-gradient(135deg, #1f2a37, #1e2b24);
+  border-bottom-color: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-header:hover {
+  background: linear-gradient(135deg, #243142, #22322a);
+}
+
+#gc-root[data-gc-theme="dark"] #gc-title,
+#gc-root[data-gc-theme="dark"] .gc-scope-label {
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-minimize {
+  color: #9aa0a6;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-minimize:hover {
+  background: rgba(232, 234, 237, 0.12);
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-section {
+  background: #28292c;
+  border-color: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-section-title,
+#gc-root[data-gc-theme="dark"] .gc-next-target {
+  color: #9aa0a6;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-next-target-summary {
+  color: #bdc1c6;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn {
+  background: #303134;
+  border-color: #5f6368;
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn:hover {
+  background: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn-danger,
+#gc-root[data-gc-theme="dark"] .gc-btn-stop {
+  border-color: #f28b82;
+  color: #f28b82;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-btn-danger:hover:not(:disabled),
+#gc-root[data-gc-theme="dark"] .gc-btn-stop:hover:not(:disabled) {
+  background: rgba(242, 139, 130, 0.12);
+}
+
+#gc-root[data-gc-theme="dark"] #gc-execute-selected[data-ready="false"] {
+  background: #2d2e31;
+  border-color: #3c4043;
+  color: #80868b;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-execute-selected[data-ready="true"] {
+  background: #8ab4f8;
+  border-color: #8ab4f8;
+  color: #062e6f;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-execute-selected[data-ready="true"]:hover:not(:disabled) {
+  background: #aecbfa;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-action-checkbox {
+  accent-color: #8ab4f8;
+}
+
+#gc-root[data-gc-theme="dark"] .gc-action-check:hover:not(:has(:disabled)) {
+  background: rgba(232, 234, 237, 0.08);
+}
+
+#gc-root[data-gc-theme="dark"] .gc-action-row.gc-row-active .gc-btn {
+  border-color: #8ab4f8;
+  box-shadow: 0 0 0 1px #8ab4f8 inset;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-context {
+  border-color: #5f6368;
+  color: #9aa0a6;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-context.gc-context-sender {
+  border-color: #394457;
+  background: #1f2a3a;
+  color: #a8c7fa;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-working {
+  border-color: #394457;
+  background: #1f2a3a;
+  color: #a8c7fa;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-status {
+  border-top-color: #3c4043;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm {
+  border-color: #7a5c00;
+  background: #2b2612;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-message {
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-actions button {
+  background: #303134;
+  color: #e8eaed;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-proceed {
+  border-color: #8ab4f8;
+  color: #8ab4f8;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm-stop {
+  border-color: #f28b82;
+  color: #f28b82;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-confirm.gc-confirm-danger #gc-confirm-proceed {
+  background: #f28b82;
+  border-color: #f28b82;
+  color: #3c0d0a;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast,
+#gc-root[data-gc-theme="dark"] #gc-undo {
+  background: #e8eaed;
+  color: #202124;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-undo-action {
+  border-color: #0b57d0;
+  color: #0b57d0;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-undo-dismiss {
+  color: #202124;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast[data-type="success"] {
+  background: #0f2e1a;
+  border-color: #1e4d2b;
+  color: #81c995;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast[data-type="warning"] {
+  background: #2b2612;
+  border-color: #5c4a00;
+  color: #fdd663;
+}
+
+#gc-root[data-gc-theme="dark"] #gc-toast[data-type="error"] {
+  background: #3a1513;
+  border-color: #6c2b27;
+  color: #f28b82;
+}

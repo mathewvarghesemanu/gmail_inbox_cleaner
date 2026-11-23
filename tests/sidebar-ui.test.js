@@ -211,3 +211,16 @@ describe("option hit target", () => {
     expect(allPages.checked).toBe(false);
   });
 });
+
+describe("theme", () => {
+  it("follows Gmail's dark background", () => {
+    const GC = load();
+    document.body.style.backgroundColor = "rgb(32, 33, 36)";
+    GC.applyTheme();
+    expect(document.getElementById("gc-root").dataset.gcTheme).toBe("dark");
+    document.body.style.backgroundColor = "rgb(255, 255, 255)";
+    GC.applyTheme();
+    expect(document.getElementById("gc-root").dataset.gcTheme).toBe("light");
+    document.body.style.backgroundColor = "";
+  });
+});

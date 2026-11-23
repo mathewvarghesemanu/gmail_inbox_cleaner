@@ -269,8 +269,48 @@
     bar.title = sender;
   }
 
+  /** Parses a computed "rgb()/rgba()" color; returns null for transparent or unknown. */
+  function parseOpaqueColor(value) {
+    const match = String(value || "").match(/rgba?\(([^)]+)\)/);
+    if (!match) return null;
+    const [r, g, b, a = 1] = match[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+    if ([r, g, b, a].some((n) => Number.isNaN(n)) || a < 0.5) return null;
+    return { r, g, b };
+  }
+
+  /** Returns the first opaque background color at or above el, or null. */
+  function findBackgroundColor(el) {
+    for (let node = el; node && node.nodeType === Node.ELEMENT_NODE; node = node.parentElement) {
+      const color = parseOpaqueColor(getComputedStyle(node).backgroundColor);
+      if (color) return color;
+    }
+    return null;
+  }
+
+  /**
+   * Returns "dark" or "light", following Gmail's own theme (which is independent of
+   * the OS setting); falls back to prefers-color-scheme when Gmail's is unknown.
+   */
+  function detectGmailTheme() {
+    const color = findBackgroundColor(document.querySelector("[role='main']")) || findBackgroundColor(document.body);
+    if (color) {
+      const luminance = (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
+      return luminance < 0.4 ? "dark" : "light";
+    }
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  /** Applies the detected theme to the sidebar (attribute only: not seen by the childList observer). */
+  function applyTheme() {
+    const root = document.getElementById("gc-root");
+    if (!root) return;
+    const theme = detectGmailTheme();
+    if (root.dataset.gcTheme !== theme) root.dataset.gcTheme = theme;
+  }
+
   /** Detects current email open state and refreshes controls. No-op while action in progress. */
   function refreshOpenEmailState() {
+    applyTheme();
     if (state.working) return;
     findOpenEmailSender();
     refreshControlStates();
@@ -634,6 +674,7 @@
     renderNextEmailTargetSection();
     findOpenEmailSender();
     refreshControlStates();
+    applyTheme();
 
     makeDraggable(toggle, null, null, "y");
     makeDraggable(root, ROOT_POS_KEY, document.getElementById("gc-header"));
@@ -642,7 +683,7 @@
     syncExtensionVisibilityFromStorage();
   }
 
-  Object.assign(GC, { askProceedConfirmation, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,
+  Object.assign(GC, { applyTheme, askProceedConfirmation, detectGmailTheme, buildActionRow, buildNextTargetSection, buildScopeRow, buildSidebarRoot,
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, renderContextBar, reportError, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
