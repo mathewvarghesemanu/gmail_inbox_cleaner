@@ -45,6 +45,8 @@
       minimizeTitle: "Minimize",
       minimizeAria: "Minimize panel",
       working: "Working...",
+      workingStep: (step, total, label) => `Step ${step}/${total}: ${label}`,
+      bulkProgress: (page, count, verbed) => `Page ${page} \u00b7 ${count.toLocaleString()} ${verbed}`,
       openEmailHint: "Open an email to enable actions.",
       senderLabel: "Sender",
       sectionPrepare: "Prepare",

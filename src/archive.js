@@ -34,6 +34,7 @@
   const BULK_KINDS = {
     archive: {
       verbing: "archiving",
+      verbed: "archived",
       findControl: findArchiveControl,
       keyFallback: ["e"],
       stats: (count) => ({ pagesArchived: 1, conversationsArchived: count }),
@@ -42,6 +43,7 @@
     },
     delete: {
       verbing: "deleting",
+      verbed: "deleted",
       findControl: () => GC.findDeleteControl(),
       keyFallback: null,
       stats: (count) => ({ deleted: count }),
@@ -163,6 +165,7 @@
       }
 
       let cycles = 0;
+      let processed = 0;
       let unchangedCycles = 0;
       const maxCycles = 300;
       const maxUnchangedCycles = 4;
@@ -183,8 +186,11 @@
         await waitForSelectionToSettle();
         setLog(`Cycle ${cycles + 1}: ${config.verbing}...`);
         const selectedCount = countSelectedConversationRows();
+        GC.setProgress(STRINGS.ui.bulkProgress(cycles + 1, processed, config.verbed));
         await applyToSelected(kind);
         recordStats(config.stats(selectedCount));
+        processed += selectedCount;
+        GC.setProgress(STRINGS.ui.bulkProgress(cycles + 1, processed, config.verbed));
         undoTracker.cycles += 1;
         // Wait (up to the previous fixed 2s) for Gmail to repopulate the list with
         // different rows; then a short settle before the next cycle reads it.

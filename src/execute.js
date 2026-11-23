@@ -125,6 +125,11 @@
         if (shouldStopExecution()) break;
         const actionId = selectedActionIds[index];
         const nextActionId = selectedActionIds[index + 1] || "";
+        GC.setProgress("");
+        GC.setWorkingStep(
+          STRINGS.ui.workingStep(index + 1, selectedActionIds.length, GC.getButtonLabel(document.getElementById(actionId))),
+          actionId
+        );
         await runActionByButtonId(actionId, { skipWorking: true });
         if (shouldStopExecution()) break;
         if (index < selectedActionIds.length - 1 && shouldWaitBetweenActions(actionId, nextActionId)) {

@@ -113,7 +113,32 @@
 }
 
 #gc-working.gc-working-visible {
-  display: inline-flex;
+  display: flex;
+}
+
+.gc-working-lines {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gc-working-text {
+  overflow-wrap: anywhere;
+}
+
+.gc-working-detail {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.gc-working-spinner {
+  flex-shrink: 0;
+}
+
+.gc-action-row.gc-row-active .gc-btn {
+  border-color: #0b57d0;
+  box-shadow: 0 0 0 1px #0b57d0 inset;
 }
 
 .gc-working-spinner {

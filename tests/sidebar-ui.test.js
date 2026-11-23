@@ -109,3 +109,22 @@ describe("archive / delete scope rows", () => {
     expect(group.classList.contains("gc-hidden")).toBe(false);
   });
 });
+
+describe("working progress", () => {
+  it("shows the current step and progress, and clears them when work ends", () => {
+    const GC = load();
+    GC.setWorking(true);
+    GC.setWorkingStep("Step 2/3: Archive all pages", GC.ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES);
+    GC.setProgress(GC.STRINGS.ui.bulkProgress(3, 150, "archived"));
+    const working = document.getElementById("gc-working");
+    expect(working.textContent).toContain("Step 2/3: Archive all pages");
+    expect(working.textContent).toContain("Page 3 · 150 archived");
+    const row = document.getElementById(GC.ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES).closest(".gc-action-row");
+    expect(row.classList.contains("gc-row-active")).toBe(true);
+
+    GC.setWorking(false);
+    expect(working.querySelector(".gc-working-text").textContent).toBe(GC.STRINGS.ui.working);
+    expect(working.querySelector(".gc-working-detail").classList.contains("gc-hidden")).toBe(true);
+    expect(row.classList.contains("gc-row-active")).toBe(false);
+  });
+});

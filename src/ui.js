@@ -156,10 +156,33 @@
     });
   }
 
-  /** Sets working. */
+  /** Sets working. Clears any step / progress text when work ends. */
   function setWorking(next) {
     state.working = next;
+    if (!next) {
+      setWorkingStep("");
+      setProgress("");
+    }
     refreshControlStates();
+  }
+
+  /**
+   * Shows which Execute Selected step is running ("Step 2/4: ...") and highlights
+   * that action's row. Empty text restores the plain "Working..." label.
+   */
+  function setWorkingStep(text, actionId = "") {
+    const label = document.querySelector("#gc-working .gc-working-text");
+    if (label) label.textContent = text || STRINGS.ui.working;
+    document.querySelectorAll(".gc-action-row.gc-row-active").forEach((row) => row.classList.remove("gc-row-active"));
+    if (actionId) document.getElementById(actionId)?.closest(".gc-action-row")?.classList.add("gc-row-active");
+  }
+
+  /** Shows a live progress line under the working label (e.g. "Page 3 · 150 archived"). */
+  function setProgress(text) {
+    const detail = document.querySelector("#gc-working .gc-working-detail");
+    if (!detail) return;
+    detail.textContent = text || "";
+    detail.classList.toggle("gc-hidden", !text);
   }
 
   /** Refreshes all control enabled/disabled states based on current working and email-open state. */
@@ -425,7 +448,12 @@
         "div",
         { id: "gc-working", "aria-live": "polite", "aria-hidden": "true" },
         h("span", { class: "gc-working-spinner", "aria-hidden": "true" }),
-        h("span", { class: "gc-working-text" }, ui.working)
+        h(
+          "span",
+          { class: "gc-working-lines" },
+          h("span", { class: "gc-working-text" }, ui.working),
+          h("span", { class: "gc-working-detail gc-hidden" })
+        )
       ),
       h(
         "div",
@@ -586,7 +614,7 @@
     buildToggle, flashSuccess, flushToastQueue, getButtonLabel, getSelectedActionIds,
     hideProceedConfirmation, isActionChecked, mountSidebar, persistActionCheckboxState, refreshControlStates,
     refreshOpenEmailState, renderContextBar, resolveProceedConfirmation, restoreActionCheckboxState, runWithElapsedToast,
-    setExtensionVisibility, setProceedButtonLabel, setWorking, showToast, startProceedAutoCountdown,
+    setExtensionVisibility, setProceedButtonLabel, setProgress, setWorking, setWorkingStep, showToast, startProceedAutoCountdown,
     stopProceedAutoCountdown, syncExtensionVisibilityFromStorage, toastQueue,
     updateExecuteSelectedState });
 })();
