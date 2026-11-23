@@ -20,6 +20,42 @@
         "mac": "Command+Shift+E"
       },
       "description": "Execute Selected"
+    },
+    "unsubscribe-open": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+U",
+        "mac": "Command+Shift+U"
+      },
+      "description": "Unsubscribe Open Email"
+    },
+    "go-to-next-email": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Go to Next Email"
+    },
+    "archive-all-pages-like-open": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Select All Emails Like Open Email, then Archive Listed Emails in All Pages"
+    },
+    "select-like-open": {
+      "description": "Select All Emails Like Open Email"
+    },
+    "archive-this-page": {
+      "description": "Archive Listed Emails in This Page"
+    },
+    "archive-all-pages": {
+      "description": "Archive Listed Emails in All Pages"
+    },
+    "go-to-inbox": {
+      "description": "Go to Inbox"
+    },
+    "stop-execution": {
+      "description": "Stop Execution"
     }
   },
   "action": {

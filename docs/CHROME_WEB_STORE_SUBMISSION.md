@@ -46,5 +46,10 @@ Gmail Unsubscriber Ondevice adds a compact sidebar inside Gmail with fast action
 Run from project root:
 
 ```bash
-mkdir -p release && zip -X release/Gmail_unsubscriber_on_device_v2.3.1.zip manifest.json background.js content.js popup.js popup.html popup.css styles.css privacy-policy.html icons/*.png
+./scripts/package.sh
+unzip -l release/Gmail_unsubscriber_on_device_v<version>.zip   # sanity-check contents
 ```
+
+The script reads the version from `manifest.json` and zips only the runtime files (`manifest.json`, `background.js`, `content.js`, `styles.css`, `popup.html`, `popup.js`, `popup.css`, `icons/*.png`), excluding `.DS_Store`. Add any new runtime file to the `RUNTIME_FILES` list at the top of the script.
+
+The `release/` folder is gitignored. Attach the built zip to the matching GitHub Release instead of committing it.

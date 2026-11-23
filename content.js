@@ -40,6 +40,8 @@
     GO_TO_NEXT_PAGE: "gc-next-page"
   };
   const SHOW_EXTENSION_KEY = "showExtensionEnabled";
+  /** Popup setting: max inbox pages to scan when preparing next-email targeting. */
+  const MAX_SCAN_PAGES_KEY = "maxScanPages";
   const ACTION_CHECKBOX_STATE_KEY = "actionCheckboxState";
   /** Actions checked on first run, before the user has saved any selection. */
   const DEFAULT_CHECKED_ACTION_IDS = new Set([
@@ -54,6 +56,39 @@
   const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
   /** Default suggested_key, shown on the button; users can rebind it in Chrome. */
   const EXECUTE_SELECTED_SHORTCUT_LABEL = IS_MAC ? "\u2318\u21e7E" : "Ctrl+Shift+E";
+  /** Composite command: Select Like Open, then Archive All Pages. */
+  const ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND = "archive-all-pages-like-open";
+  const STOP_EXECUTION_COMMAND = "stop-execution";
+  /** Manifest command name -> sidebar action button id. */
+  const COMMAND_ACTION_IDS = {
+    "unsubscribe-open": ACTION_BUTTON_IDS.UNSUBSCRIBE,
+    "select-like-open": ACTION_BUTTON_IDS.SELECT_LIKE_OPEN,
+    "archive-this-page": ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE,
+    "archive-all-pages": ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES,
+    "go-to-inbox": ACTION_BUTTON_IDS.GO_TO_INBOX,
+    "go-to-next-email": ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE
+  };
+  /** Manifest suggested_key defaults, used until the real bindings are fetched. */
+  const DEFAULT_COMMAND_SHORTCUTS = {
+    [EXECUTE_SELECTED_COMMAND]: EXECUTE_SELECTED_SHORTCUT_LABEL,
+    "unsubscribe-open": IS_MAC ? "\u2318\u21e7U" : "Ctrl+Shift+U",
+    "go-to-next-email": IS_MAC ? "\u2318\u21e7Y" : "Ctrl+Shift+Y",
+    [ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND]: IS_MAC ? "\u2318\u21e7K" : "Ctrl+Shift+K"
+  };
+  /** Sidebar element id -> command whose shortcut is shown on it. */
+  const SHORTCUT_HINT_TARGETS = {
+    "gc-execute-selected": EXECUTE_SELECTED_COMMAND,
+    [ACTION_BUTTON_IDS.UNSUBSCRIBE]: "unsubscribe-open",
+    [ACTION_BUTTON_IDS.SELECT_LIKE_OPEN]: "select-like-open",
+    [ACTION_BUTTON_IDS.ARCHIVE_THIS_PAGE]: "archive-this-page",
+    [ACTION_BUTTON_IDS.ARCHIVE_ALL_PAGES]: "archive-all-pages",
+    [ACTION_BUTTON_IDS.GO_TO_INBOX]: "go-to-inbox",
+    [ACTION_BUTTON_IDS.GO_TO_NEXT_PAGE]: "go-to-next-email",
+    "gc-stop-execution": STOP_EXECUTION_COMMAND
+  };
+  /** Local-only usage counters (never sent anywhere). Shape documented in recordStats. */
+  const STATS_KEY = "gcStats";
+  const STATS_DAYS_KEPT = 30;
   const ROOT_POS_KEY = "gcRootPos";
   const DEFAULT_SCAN_PAGE_LIMIT = 5;
   const MIN_SCAN_PAGE_LIMIT = 1;
@@ -508,7 +543,7 @@
   }
 
   /** Handles ask proceed confirmation. */
-  function askProceedConfirmation(message) {
+  function askProceedConfirmation(message, options = {}) {
     const box = document.getElementById("gc-confirm");
     const messageEl = document.getElementById("gc-confirm-message");
     if (!box || !messageEl) return Promise.resolve(false);
@@ -519,7 +554,7 @@
 
     messageEl.textContent = message;
     box.classList.add("gc-confirm-visible");
-    if (String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
+    if (options.autoProceed || String(message || "").includes(AUTO_PROCEED_UNSUBSCRIBE_PROMPT_TEXT)) {
       startProceedAutoCountdown(AUTO_PROCEED_SECONDS);
     } else {
       stopProceedAutoCountdown();
@@ -577,6 +612,13 @@
     const parsed = Number.parseInt(String(raw ?? ""), 10);
     if (!Number.isFinite(parsed)) return DEFAULT_SCAN_PAGE_LIMIT;
     return Math.min(MAX_SCAN_PAGE_LIMIT, Math.max(MIN_SCAN_PAGE_LIMIT, parsed));
+  }
+
+  /** Loads the popup-configured scan page limit from storage. */
+  function syncScanPageLimitFromStorage() {
+    safeStorageGet([MAX_SCAN_PAGES_KEY], (result) => {
+      state.maxScanPages = normalizeScanPageLimit(result[MAX_SCAN_PAGES_KEY]);
+    });
   }
 
   /** Checks whether editable target. */
@@ -675,8 +717,7 @@
     const executeButton = document.getElementById("gc-execute-selected");
     if (!executeButton) return;
     // Respect the popup's hide toggle: no hidden actions from a hidden panel.
-    const root = document.getElementById("gc-root");
-    if (root && root.style.display === "none") return;
+    if (isSidebarHiddenByToggle()) return;
 
     if (state.working || state.batchExecuting) {
       showToast("Already running");
@@ -689,21 +730,209 @@
     triggerExecuteSelected();
   }
 
-  /** Listens for the Chrome command relayed by the service worker. */
+  /** Returns whether the sidebar is hidden by the popup's "Show the extension" toggle. */
+  function isSidebarHiddenByToggle() {
+    const root = document.getElementById("gc-root");
+    return !!root && root.style.display === "none";
+  }
+
+  /** Returns a button's label text, ignoring any shortcut hint span. */
+  function getButtonLabel(el, fallback = "Action") {
+    if (!el) return fallback;
+    const text = [...el.childNodes]
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent)
+      .join("")
+      .trim();
+    return text || fallback;
+  }
+
+  /** Runs Select Like Open then Archive All Pages as one stoppable batch. */
+  async function actionArchiveAllPagesLikeOpen() {
+    if (state.working || state.batchExecuting) return;
+    state.batchExecuting = true;
+    state.stopExecutionRequested = false;
+    setWorking(true);
+    try {
+      const sender = findOpenEmailSender();
+      if (!sender) {
+        setLog("Open an email first so I can detect its sender.");
+        return;
+      }
+      // Drop any previous lock so a failed search cannot archive the old sender.
+      state.lockedSender = "";
+      state.lockedQuery = "";
+      await actionSelectLikeOpen({ skipWorking: true });
+      if (shouldStopExecution()) {
+        setLog("Execution stopped.");
+        showToast("Execution stopped");
+        return;
+      }
+      if (!state.lockedQuery || state.lockedSender !== normalizeEmail(sender)) return;
+      await actionArchiveRecursive({ skipWorking: true });
+      recordStats({ batches: 1 });
+    } finally {
+      state.batchExecuting = false;
+      state.stopExecutionRequested = false;
+      setWorking(false);
+    }
+  }
+
+  /** Dispatches a manifest command (relayed by the service worker) to its sidebar action. */
+  function runCommandFromShortcut(command) {
+    if (!document.getElementById("gc-root")) return;
+    // Respect the popup's hide toggle: no hidden actions from a hidden panel.
+    if (isSidebarHiddenByToggle()) return;
+
+    if (command === EXECUTE_SELECTED_COMMAND) {
+      runExecuteSelectedFromShortcut();
+      return;
+    }
+    if (command === STOP_EXECUTION_COMMAND) {
+      if (state.batchExecuting) {
+        requestStopExecution();
+        showToast("Stop requested");
+      } else {
+        showToast("Nothing to stop");
+      }
+      return;
+    }
+    if (state.working || state.batchExecuting) {
+      showToast("Already running");
+      return;
+    }
+
+    // Same enable rules as the sidebar buttons (e.g. most actions need an open email).
+    findOpenEmailSender();
+    refreshControlStates();
+
+    if (command === ARCHIVE_ALL_PAGES_LIKE_OPEN_COMMAND) {
+      if (!state.openSender) {
+        showToast("Open an email first");
+        return;
+      }
+      void runWithElapsedToast("Select Like Open + Archive All Pages", async () => {
+        await actionArchiveAllPagesLikeOpen();
+      });
+      return;
+    }
+
+    const actionId = COMMAND_ACTION_IDS[command];
+    if (!actionId) return;
+    const button = document.getElementById(actionId);
+    if (!button || button.disabled) {
+      showToast("Open an email first");
+      return;
+    }
+    void runWithElapsedToast(getButtonLabel(button), async () => {
+      await runActionByButtonId(actionId);
+    });
+  }
+
+  /** Renders shortcut hints (command name -> shortcut string) onto sidebar buttons. */
+  function applyShortcutHints(shortcuts) {
+    Object.entries(SHORTCUT_HINT_TARGETS).forEach(([elementId, command]) => {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const label = getButtonLabel(el);
+      el.querySelector(".gc-shortcut-hint")?.remove();
+      const shortcut = String(shortcuts?.[command] || "").trim();
+      if (!shortcut) {
+        el.removeAttribute("title");
+        return;
+      }
+      const hint = document.createElement("span");
+      hint.className = "gc-shortcut-hint";
+      hint.textContent = shortcut;
+      el.appendChild(hint);
+      el.title = `${label} (${shortcut})`;
+    });
+  }
+
+  /** Shows default shortcuts, then the user's real bindings fetched from the service worker. */
+  function loadShortcutHints() {
+    applyShortcutHints(DEFAULT_COMMAND_SHORTCUTS);
+    if (state.extensionContextInvalidated) return;
+    try {
+      chrome.runtime.sendMessage({ type: "gc-get-shortcuts" }, (response) => {
+        if (chrome.runtime?.lastError || !response?.ok || !response.shortcuts) return;
+        applyShortcutHints(response.shortcuts);
+      });
+    } catch (error) {
+      if (isContextInvalidatedError(error)) markExtensionContextInvalidated(error);
+    }
+  }
+
+  /** Listens for Chrome commands relayed by the service worker. */
   function installShortcutCommandListener() {
     if (window.__gmailCleanerShortcutsInstalled) return;
     if (!chrome.runtime?.onMessage) return;
     window.__gmailCleanerShortcutsInstalled = true;
     try {
       chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-        if (message?.type !== "gc-execute-selected") return;
-        runExecuteSelectedFromShortcut();
+        if (message?.type === "gc-execute-selected") {
+          // Legacy message type, still sent for the execute-selected command.
+          runCommandFromShortcut(EXECUTE_SELECTED_COMMAND);
+        } else if (message?.type === "gc-command" && typeof message.command === "string") {
+          runCommandFromShortcut(message.command);
+        } else {
+          return;
+        }
         sendResponse({ ok: true });
       });
     } catch (error) {
       // Extension context can be invalidated after a reload; the next page load re-installs.
       console.log("[GmailCleaner] Shortcut listener not installed", error);
     }
+  }
+
+  /** Returns the local-date key (YYYY-MM-DD) used for per-day stats. */
+  function getStatsDayKey(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  const STAT_FIELDS = ["unsubscribed", "conversationsArchived", "pagesArchived", "batches"];
+  let statsWriteChain = Promise.resolve();
+
+  /**
+   * Adds counts to the on-device stats in chrome.storage.local[STATS_KEY]:
+   * { totals: {unsubscribed, conversationsArchived, pagesArchived, batches},
+   *   days: { "YYYY-MM-DD": {same fields} } } keeping the last STATS_DAYS_KEPT days.
+   * Writes are serialized so concurrent increments are not lost. Never leaves the device.
+   */
+  function recordStats(delta) {
+    statsWriteChain = statsWriteChain.then(
+      () =>
+        new Promise((resolve) => {
+          // safeStorageGet skips the callback on errors; never stall the chain.
+          const timer = setTimeout(resolve, 3000);
+          safeStorageGet([STATS_KEY], (result) => {
+            clearTimeout(timer);
+            const stored = result?.[STATS_KEY];
+            const stats = stored && typeof stored === "object" ? stored : {};
+            const totals = stats.totals && typeof stats.totals === "object" ? stats.totals : {};
+            const days = stats.days && typeof stats.days === "object" ? stats.days : {};
+            const todayKey = getStatsDayKey();
+            const today = days[todayKey] && typeof days[todayKey] === "object" ? days[todayKey] : {};
+            STAT_FIELDS.forEach((field) => {
+              const add = Math.max(0, Number(delta?.[field]) || 0);
+              if (!add) return;
+              totals[field] = (Number(totals[field]) || 0) + add;
+              today[field] = (Number(today[field]) || 0) + add;
+            });
+            days[todayKey] = today;
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - (STATS_DAYS_KEPT - 1));
+            const cutoffKey = getStatsDayKey(cutoff);
+            Object.keys(days).forEach((key) => {
+              if (key < cutoffKey) delete days[key];
+            });
+            safeStorageSet({ [STATS_KEY]: { ...stats, totals, days } });
+            resolve();
+          });
+        })
+    );
   }
 
   /** Requests stop execution. */
@@ -778,6 +1007,7 @@
           await waitForListToLoadForBatchStep();
         }
       }
+      recordStats({ batches: 1 });
       if (shouldStopExecution()) {
         setLog("Execution stopped.");
         showToast("Execution stopped");
@@ -1385,15 +1615,23 @@
   }
 
   /** Checks whether has any selected conversation row. */
+  function isConversationRowSelected(row) {
+    if ((row.getAttribute("aria-selected") || "").toLowerCase() === "true") return true;
+    const rowCheckbox = row.querySelector("[role='checkbox']");
+    return (rowCheckbox?.getAttribute("aria-checked") || "").toLowerCase() === "true";
+  }
+
   function hasAnySelectedConversationRow() {
     const rows = getThreadRows();
     if (!rows.length) return false;
+    return rows.some(isConversationRowSelected);
+  }
 
-    return rows.some((row) => {
-      if ((row.getAttribute("aria-selected") || "").toLowerCase() === "true") return true;
-      const rowCheckbox = row.querySelector("[role='checkbox']");
-      return (rowCheckbox?.getAttribute("aria-checked") || "").toLowerCase() === "true";
-    });
+  /** Best-effort count of conversations about to be archived on this page (for local stats). */
+  function countSelectedConversationRows() {
+    const rows = getThreadRows();
+    const selected = rows.filter(isConversationRowSelected).length;
+    return selected || rows.length;
   }
 
   /** Waits for selection to settle. */
@@ -2631,10 +2869,13 @@
       await selectAllMatchingSearch({ includeAllInSearch: false });
       await waitForSelectionToSettle();
       setLog(`${state.selectedConversationsText} Archiving current page...`);
+      const selectedCount = countSelectedConversationRows();
       await archiveSelected();
+      recordStats({ pagesArchived: 1, conversationsArchived: selectedCount });
       setLog("Archive action sent for current page.");
       flashSuccess("Archived");
       showToast("Archive complete");
+      offerGmailUndo();
     } catch (error) {
       setLog(error.message || "Archive failed.");
     } finally {
@@ -2646,12 +2887,15 @@
   async function actionArchiveRecursive(options = {}) {
     const manageWorking = !options.skipWorking;
     if (manageWorking) setWorking(true);
+    const undoTracker = { sender: "", cycles: 0 };
     try {
       await ensureQueryReady();
       await waitForListToLoadForBatchStep(20000);
       if (!getThreadRows().length) {
         throw new Error("No emails found in the current filtered list to archive.");
       }
+      if (!(await confirmArchiveAllPagesWithCount(state.lockedSender))) return;
+      undoTracker.sender = state.lockedSender;
 
       let cycles = 0;
       let unchangedCycles = 0;
@@ -2673,7 +2917,10 @@
         await selectAllMatchingSearch({ includeAllInSearch: false });
         await waitForSelectionToSettle();
         setLog(`Cycle ${cycles + 1}: archiving...`);
+        const selectedCount = countSelectedConversationRows();
         await archiveSelected();
+        recordStats({ pagesArchived: 1, conversationsArchived: selectedCount });
+        undoTracker.cycles += 1;
         await sleep(2000);
 
         cycles += 1;
@@ -2708,6 +2955,7 @@
     } catch (error) {
       setLog(error.message || "Recursive archive failed.");
     } finally {
+      if (undoTracker.sender && undoTracker.cycles > 0) offerUndoAllArchive(undoTracker.sender);
       if (manageWorking) setWorking(false);
     }
   }
@@ -2727,6 +2975,7 @@
       }
       const result = await clickUnsubscribeInOpenEmail();
       await dismissUnsubscribeDialogs();
+      recordStats({ unsubscribed: 1 });
       setLog(result);
       showToast("Unsubscribe complete");
     } catch (error) {
@@ -2788,6 +3037,359 @@
     } finally {
       setWorking(false);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Archive undo + dry-run count
+  // ---------------------------------------------------------------------------
+
+  const UNDO_GMAIL_OFFER_MS = 10000;
+  const UNDO_ALL_OFFER_MS = 60000;
+  let undoOfferTimer = null;
+  let undoOfferPayload = null;
+
+  /** Returns true when the element belongs to this extension's own UI. */
+  function isOwnUiElement(el) {
+    return !!el?.closest?.("#gc-root, #gc-toggle");
+  }
+
+  /** Finds the "Undo" action in Gmail's notification bar (locale-robust, English fallback). */
+  function findGmailUndoLink() {
+    const byId = [...document.querySelectorAll("#link_undo, [id^='link_undo']")].find(
+      (el) => isVisible(el) && !isOwnUiElement(el)
+    );
+    if (byId) return byId;
+
+    const actionableSelector = "[role='link'], [role='button'], a, span[idlink], span.ag";
+    const containers = [...document.querySelectorAll("[role='alert'], div.vh, div.b8")].filter(
+      (el) => isVisible(el) && !isOwnUiElement(el)
+    );
+    for (const container of containers) {
+      const actions = [...container.querySelectorAll(actionableSelector)].filter(
+        (el) => isVisible(el) && !isOwnUiElement(el)
+      );
+      if (!actions.length) continue;
+      const byText = actions.find((el) => /\bundo\b/i.test((el.textContent || "").trim()));
+      if (byText) return byText;
+      // Locale fallback: the archive notification carries a single action (Undo).
+      if (actions.length === 1) return actions[0];
+    }
+    return null;
+  }
+
+  /** Waits briefly for Gmail's undo link (its notification can lag the archive click). */
+  async function waitForGmailUndoLink(timeout = 1500) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const link = findGmailUndoLink();
+      if (link) return link;
+      await sleep(120);
+    }
+    return findGmailUndoLink();
+  }
+
+  /** Hides the extension's undo offer. */
+  function hideUndoOffer() {
+    if (undoOfferTimer) {
+      clearTimeout(undoOfferTimer);
+      undoOfferTimer = null;
+    }
+    undoOfferPayload = null;
+    document.getElementById("gc-undo")?.classList.remove("gc-undo-visible");
+  }
+
+  /** Shows an undo offer (message + button) for durationMs. */
+  function showUndoOffer(payload) {
+    const box = document.getElementById("gc-undo");
+    const messageEl = document.getElementById("gc-undo-message");
+    const actionEl = document.getElementById("gc-undo-action");
+    if (!box || !messageEl || !actionEl) return;
+    hideUndoOffer();
+    undoOfferPayload = payload;
+    messageEl.textContent = payload.message || "";
+    actionEl.textContent = payload.actionLabel || "Undo";
+    box.classList.add("gc-undo-visible");
+    undoOfferTimer = setTimeout(hideUndoOffer, payload.durationMs || UNDO_GMAIL_OFFER_MS);
+  }
+
+  /** Offers to click Gmail's own Undo after a single-page archive. */
+  function offerGmailUndo() {
+    showUndoOffer({
+      kind: "gmail",
+      message: "Archived this page.",
+      actionLabel: "Undo archive",
+      durationMs: UNDO_GMAIL_OFFER_MS
+    });
+  }
+
+  /** Offers to move everything from the archived sender back to the Inbox. */
+  function offerUndoAllArchive(sender) {
+    const normalized = normalizeEmail(sender);
+    if (!normalized) return;
+    showUndoOffer({
+      kind: "all",
+      sender: normalized,
+      message: `Archived all pages from ${normalized}.`,
+      actionLabel: "Undo all",
+      durationMs: UNDO_ALL_OFFER_MS
+    });
+  }
+
+  /** Clicks Gmail's Undo link if still present. Never throws. */
+  async function undoSinglePageArchive() {
+    try {
+      const link = await waitForGmailUndoLink(1500);
+      if (!link) {
+        setLog("Gmail's Undo link is no longer available.");
+        showToast("Undo no longer available in Gmail. Use Show Archived to restore.", { durationMs: 4000 });
+        return;
+      }
+      robustClick(link);
+      setLog("Undo sent to Gmail.");
+      showToast("Archive undone");
+    } catch (error) {
+      setLog(`Undo failed: ${error?.message || error}`);
+      showToast("Undo failed");
+    }
+  }
+
+  /** Finds Gmail's "Move to Inbox" toolbar control (English text first, then act code). */
+  function findMoveToInboxControl() {
+    const toolbar = getMailboxToolbar() || document;
+    const controls = [...toolbar.querySelectorAll("div[role='button'], button, span[role='button']")].filter(
+      (el) =>
+        isVisible(el) &&
+        !isOwnUiElement(el) &&
+        (el.getAttribute("aria-disabled") || "").toLowerCase() !== "true"
+    );
+    const byText = controls.find((el) => {
+      const signal = [
+        el.getAttribute("aria-label") || "",
+        el.getAttribute("data-tooltip") || "",
+        (el.textContent || "").trim()
+      ].join(" ");
+      return /move to inbox/i.test(signal);
+    });
+    if (byText) return byText;
+    // Locale-independent fallback: Gmail's toolbar action code for Move to Inbox.
+    return controls.find((el) => (el.getAttribute("act") || "").trim() === "8") || null;
+  }
+
+  /** Moves the current selection to the Inbox. Returns false if the control is missing. */
+  async function moveSelectedToInbox() {
+    const control = findMoveToInboxControl();
+    if (!control) return false;
+    robustClick(control);
+    await sleep(700);
+    return true;
+  }
+
+  /** Finds the visible "1–50 of 1,234" range element in Gmail's toolbar. */
+  function findResultRangeElement() {
+    const scopes = [getMailboxToolbar(), document].filter(Boolean);
+    for (const scope of scopes) {
+      const el = [...scope.querySelectorAll("span.Dj")].find((node) => isVisible(node) && !isOwnUiElement(node));
+      if (el) return el;
+    }
+    const toolbar = getMailboxToolbar();
+    if (!toolbar) return null;
+    return (
+      [...toolbar.querySelectorAll("span, div")].find((node) => {
+        if (!isVisible(node) || node.children.length > 6) return false;
+        const text = (node.textContent || "").trim();
+        return text.length < 48 && /\d\s*[–—\-~～]\s*\d/.test(text);
+      }) || null
+    );
+  }
+
+  /** Extracts integer groups ("1,234", "1 234", "1.234") from localized text. */
+  function parseLocalizedIntegers(text) {
+    const groups = String(text || "").match(/\d+(?:[.,'   ]\d{2,3})*/g) || [];
+    return groups
+      .map((group) => Number.parseInt(group.replace(/\D/g, ""), 10))
+      .filter((value) => Number.isFinite(value));
+  }
+
+  /**
+   * Reads Gmail's result count. Returns { total, pageSize, many } or null.
+   * Uses the largest number as the total so locales that put it first still work.
+   */
+  function readGmailResultCount() {
+    const el = findResultRangeElement();
+    if (!el) return null;
+    const tsParts = [...el.querySelectorAll(".ts")].map((node) => node.textContent || "");
+    const numbers = tsParts.length >= 2
+      ? tsParts.flatMap((part) => parseLocalizedIntegers(part))
+      : parseLocalizedIntegers(el.textContent || "");
+    if (numbers.length < 2) return null;
+
+    if (numbers.length === 2) {
+      // "1–50 of many": no total available.
+      const [a, b] = numbers;
+      return { total: null, pageSize: Math.max(a, b) - Math.min(a, b) + 1, many: true };
+    }
+
+    const total = Math.max(...numbers);
+    const rest = [...numbers];
+    rest.splice(rest.indexOf(total), 1);
+    const pageSize = Math.max(...rest) - Math.min(...rest) + 1;
+    return { total, pageSize, many: false };
+  }
+
+  /** Builds the human description of how many conversations will be archived. */
+  function describeArchiveCount() {
+    const count = readGmailResultCount();
+    if (count && !count.many && count.total > 0) {
+      return `~${count.total.toLocaleString()} conversation${count.total === 1 ? "" : "s"}`;
+    }
+    if (count && count.many) {
+      return `many conversations (${count.pageSize}+ per page × multiple pages)`;
+    }
+    const rows = getThreadRows().length;
+    return rows ? `at least ${rows} conversation${rows === 1 ? "" : "s"}` : "all listed conversations";
+  }
+
+  /** Dry-run: shows the match count and asks before archiving all pages. */
+  async function confirmArchiveAllPagesWithCount(sender) {
+    const description = describeArchiveCount();
+    setLog(`Dry run: ${description} from ${sender}.`);
+    const proceed = await askProceedConfirmation(
+      `About to archive ${description} from ${sender}. Proceed?`,
+      { autoProceed: state.batchExecuting }
+    );
+    if (proceed) return true;
+    setLog("Archive cancelled by user.");
+    if (state.batchExecuting) {
+      state.stopExecutionRequested = true;
+      showToast("Execution stopped");
+    } else {
+      showToast("Archive cancelled");
+    }
+    return false;
+  }
+
+  /** Moves every archived conversation from sender back to the Inbox. */
+  async function actionUndoArchiveAll(sender) {
+    const expectedSender = normalizeEmail(sender);
+    if (!expectedSender) {
+      showToast("Nothing to undo");
+      return;
+    }
+    if (state.working || state.batchExecuting) {
+      showToast("Finish or stop the current run first");
+      return;
+    }
+    const query = `from:${expectedSender} -in:inbox`;
+    const proceed = await askProceedConfirmation(
+      `Move archived conversations from ${expectedSender} back to Inbox? This searches "${query}" and moves every match, including ones archived before this run.`
+    );
+    if (!proceed) {
+      setLog("Undo all cancelled.");
+      return;
+    }
+    if (state.working || state.batchExecuting) {
+      showToast("Finish or stop the current run first");
+      return;
+    }
+    hideUndoOffer();
+
+    // Run as a stoppable execution so the Stop button and stop checks apply.
+    state.batchExecuting = true;
+    state.stopExecutionRequested = false;
+    setWorking(true);
+    let cycles = 0;
+    try {
+      setLog(`Undo all: searching ${query}...`);
+      await runSearchQuery(query);
+
+      let unchangedCycles = 0;
+      const maxCycles = 300;
+      const maxUnchangedCycles = 4;
+      while (cycles < maxCycles) {
+        if (shouldStopExecution()) {
+          setLog(`Undo all stopped after ${cycles} page(s).`);
+          showToast("Undo stopped");
+          return;
+        }
+        await ensureSearchContext(query);
+        const rows = getThreadRows();
+        if (!rows.length) break;
+
+        const rowSenders = getRowSenderSignals();
+        if (rowSenders.length && !rowSenders.some((s) => senderSignalMatchesExpected(s, expectedSender))) {
+          throw new Error(`Safety check failed: listed emails are not from ${expectedSender}.`);
+        }
+
+        const beforeFingerprint = getFirstRowFingerprint();
+        setLog(`Undo all: page ${cycles + 1}, selecting...`);
+        await selectAllMatchingSearch({ includeAllInSearch: false });
+        await waitForSelectionToSettle();
+        if (shouldStopExecution()) continue;
+        setLog(`Undo all: page ${cycles + 1}, moving to Inbox...`);
+        const moved = await moveSelectedToInbox();
+        if (!moved) {
+          throw new Error("Could not find Gmail's Move to Inbox button.");
+        }
+        cycles += 1;
+        await sleep(2000);
+
+        if (!getThreadRows().length) break;
+        const afterFingerprint = getFirstRowFingerprint();
+        if (beforeFingerprint && afterFingerprint && beforeFingerprint === afterFingerprint) {
+          unchangedCycles += 1;
+          if (unchangedCycles >= maxUnchangedCycles) {
+            setLog(`Undo all stopped after ${cycles} page(s): list did not change.`);
+            showToast("Undo all incomplete");
+            return;
+          }
+          await sleep(800);
+        } else {
+          unchangedCycles = 0;
+        }
+      }
+
+      if (!cycles) {
+        setLog(`No archived conversations from ${expectedSender} found.`);
+        showToast("Nothing to restore");
+        return;
+      }
+      setLog(`Moved ${cycles} page(s) from ${expectedSender} back to Inbox.`);
+      flashSuccess("Restored");
+      showToast("Undo all complete");
+    } catch (error) {
+      setLog(`Undo all failed: ${error?.message || error}`);
+      showToast("Undo all failed");
+    } finally {
+      state.batchExecuting = false;
+      state.stopExecutionRequested = false;
+      setWorking(false);
+    }
+  }
+
+  /** Runs the action behind the current undo offer. */
+  function handleUndoOfferClick() {
+    const payload = undoOfferPayload;
+    if (!payload) return;
+    if (payload.kind === "gmail") {
+      hideUndoOffer();
+      void undoSinglePageArchive();
+      return;
+    }
+    if (payload.kind === "all") {
+      if (state.working || state.batchExecuting) {
+        showToast("Finish or stop the current run first");
+        return;
+      }
+      void runWithElapsedToast("Undo all", async () => {
+        await actionUndoArchiveAll(payload.sender);
+      });
+    }
+  }
+
+  /** Wires the undo offer buttons. */
+  function installUndoOfferListeners() {
+    document.getElementById("gc-undo-action")?.addEventListener("click", handleUndoOfferClick);
+    document.getElementById("gc-undo-dismiss")?.addEventListener("click", hideUndoOffer);
   }
 
   /** Returns row open control. */
@@ -3055,7 +3657,7 @@
             </div>
           </details>
         </div>
-        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled title="Execute Selected (${EXECUTE_SELECTED_SHORTCUT_LABEL})">Execute Selected <span class="gc-shortcut-hint">${EXECUTE_SELECTED_SHORTCUT_LABEL}</span></button>
+        <button class="gc-btn gc-btn-execute" id="gc-execute-selected" data-ready="false" disabled>Execute Selected</button>
         <button class="gc-btn gc-btn-stop" id="gc-stop-execution" disabled>Stop Execution</button>
       </div>
       <div id="gc-confirm" role="alert" aria-live="assertive">
@@ -3071,6 +3673,11 @@
       </div>
       <div id="gc-log">Ready.</div>
       <div id="gc-toast" role="status" aria-live="polite"></div>
+      <div id="gc-undo" role="status" aria-live="polite">
+        <span id="gc-undo-message"></span>
+        <button type="button" id="gc-undo-action">Undo archive</button>
+        <button type="button" id="gc-undo-dismiss" aria-label="Dismiss undo">&times;</button>
+      </div>
     `;
 
     document.body.appendChild(root);
@@ -3086,7 +3693,7 @@
 
     Object.values(ACTION_BUTTON_IDS).forEach((buttonId) => {
       document.getElementById(buttonId)?.addEventListener("click", () => {
-        const label = document.getElementById(buttonId)?.textContent?.trim() || "Action";
+        const label = getButtonLabel(document.getElementById(buttonId));
         void runWithElapsedToast(label, async () => {
           await runActionByButtonId(buttonId);
         });
@@ -3120,7 +3727,9 @@
     document.getElementById("gc-confirm-stop")?.addEventListener("click", () => {
       resolveProceedConfirmation(false);
     });
+    installUndoOfferListeners();
     restoreActionCheckboxState();
+    loadShortcutHints();
     renderNextEmailTargetSection();
     findOpenEmailSender();
     refreshControlStates();
@@ -3178,6 +3787,9 @@
     if (changes[SHOW_EXTENSION_KEY]) {
       setExtensionVisibility(changes[SHOW_EXTENSION_KEY].newValue !== false);
     }
+    if (changes[MAX_SCAN_PAGES_KEY]) {
+      state.maxScanPages = normalizeScanPageLimit(changes[MAX_SCAN_PAGES_KEY].newValue);
+    }
     if (changes[NEXT_EMAIL_TARGET_CACHE_KEY]) {
       const cached = changes[NEXT_EMAIL_TARGET_CACHE_KEY].newValue || {};
       if (!isCachedTargetValidForCurrentContext(cached)) {
@@ -3208,6 +3820,7 @@
       renderNextEmailTargetSection();
     }
   };
+  syncScanPageLimitFromStorage();
   try {
     chrome.storage.onChanged.addListener(onStorageChanged);
   } catch (error) {

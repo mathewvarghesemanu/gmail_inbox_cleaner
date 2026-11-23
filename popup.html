@@ -14,6 +14,31 @@
         <span>Show the extension</span>
       </label>
 
+      <label class="toggle-row number-row" for="max-scan-pages">
+        <span>Max pages to scan</span>
+        <input id="max-scan-pages" type="number" min="1" max="200" step="1" value="5" />
+      </label>
+      <p class="setting-hint">Inbox pages searched when finding the next email (1–200).</p>
+
+      <section class="stats" aria-labelledby="stats-title">
+        <h2 id="stats-title">Stats</h2>
+        <table class="stats-table">
+          <thead>
+            <tr><th scope="col"></th><th scope="col">Today</th><th scope="col">All time</th></tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Senders unsubscribed</th><td data-stat="today-unsubscribed">0</td><td data-stat="total-unsubscribed">0</td></tr>
+            <tr><th scope="row">Conversations archived</th><td data-stat="today-conversationsArchived">0</td><td data-stat="total-conversationsArchived">0</td></tr>
+            <tr><th scope="row">Pages archived</th><td data-stat="today-pagesArchived">0</td><td data-stat="total-pagesArchived">0</td></tr>
+            <tr><th scope="row">Batches run</th><td data-stat="today-batches">0</td><td data-stat="total-batches">0</td></tr>
+          </tbody>
+        </table>
+        <div class="stats-footer">
+          <span class="stats-note">Stored on this device only.</span>
+          <button type="button" id="reset-stats" class="stats-reset">Reset stats</button>
+        </div>
+      </section>
+
       <section class="about">
         <h2>About</h2>
         <p>Helps you clean your Gmail inbox faster using Gmail-native actions.</p>

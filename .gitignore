@@ -20,3 +20,9 @@ build/
 
 # Test coverage
 coverage/
+
+# Release zips (built by scripts/package.sh, attached to GitHub Releases)
+release/
+
+# Claude Code agent worktrees
+.claude/worktrees/

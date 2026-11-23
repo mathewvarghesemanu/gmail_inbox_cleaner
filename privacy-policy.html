@@ -68,6 +68,13 @@
           No account credentials, message bodies, or contact lists are transmitted outside your
           browser.
         </li>
+        <li>
+          The extension keeps simple usage counts (senders unsubscribed, conversations and pages
+          archived, batches run, with per-day totals for the last 30 days) in
+          <code>chrome.storage.local</code> so the popup can show them. These counts contain no
+          email content, addresses, or identifiers, never leave your device, and can be cleared at
+          any time with the popup's "Reset stats" button.
+        </li>
       </ul>
 
       <h2>Data sharing</h2>
@@ -78,7 +85,7 @@
 
       <h2>User control</h2>
       <ul>
-        <li>All actions are initiated by explicit button clicks in the extension UI.</li>
+        <li>All actions are initiated by explicit button clicks in the extension UI or by keyboard shortcuts you trigger.</li>
         <li>You can disable or remove the extension at any time from <code>chrome://extensions</code>.</li>
       </ul>
 

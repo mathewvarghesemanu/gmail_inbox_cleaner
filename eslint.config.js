@@ -28,7 +28,9 @@ module.exports = [
       // `let x = ""` defaults before a try block are an intentional style here.
       "no-useless-assignment": "off",
       // Subject normalization deliberately strips zero-width / variation-selector code points.
-      "no-misleading-character-class": "warn"
+      "no-misleading-character-class": "warn",
+      // Localized number parsing matches literal NBSP / narrow NBSP inside regexes.
+      "no-irregular-whitespace": ["error", { skipRegExps: true, skipStrings: true }]
     }
   },
   {
