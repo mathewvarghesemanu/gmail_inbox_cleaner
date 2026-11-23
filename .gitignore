@@ -17,3 +17,6 @@ build/
 # Environment
 .env
 .env.*
+
+# Test coverage
+coverage/

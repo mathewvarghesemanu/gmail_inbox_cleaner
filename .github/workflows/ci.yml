@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20 is end-of-life and current vitest/jsdom require Node >= 22.12.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Package extension
+        id: package
+        run: |
+          if [ -f scripts/package.sh ]; then
+            bash scripts/package.sh
+            echo "packaged=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "scripts/package.sh not found; skipping packaging."
+          fi
+
+      - name: Upload extension zip
+        if: steps.package.outputs.packaged == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: release/*.zip
+          if-no-files-found: warn

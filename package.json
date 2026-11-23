@@ -1,0 +1,25 @@
+{
+  "name": "gmail-unsubscriber-ondevice",
+  "version": "2.3.1",
+  "private": true,
+  "description": "Chrome MV3 extension: sidebar actions for unsubscribe, selecting similar emails, and archiving in Gmail.",
+  "license": "MIT",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "jsdom": "^31.0.1",
+    "prettier": "^3.10.1",
+    "vitest": "^5.1.1"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}
