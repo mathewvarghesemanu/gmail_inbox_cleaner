@@ -88,7 +88,9 @@
       movedToInbox: "Moved to Inbox",
       showingArchived: "Showing archived",
       openedNextEmail: "Opened next email",
-      noCachedTarget: "No cached email target"
+      noCachedTarget: "No cached email target",
+      nextTargetUnavailable: "Couldn't find the next email; skipping Go to Next Email",
+      executionFailed: "Execute Selected failed"
     },
     prompt: {
       noUnsubscribe:

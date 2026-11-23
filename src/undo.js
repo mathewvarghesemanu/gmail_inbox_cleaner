@@ -322,6 +322,11 @@
       setLog(`Undo all failed: ${error?.message || error}`);
       GC.showToast("Undo all failed");
     } finally {
+      // The restored emails are back in the Inbox: drop the sender lock and the
+      // "-in:inbox" search so the next run on this sender starts fresh.
+      state.lockedSender = "";
+      state.lockedQuery = "";
+      state.query = "";
       state.batchExecuting = false;
       state.stopExecutionRequested = false;
       GC.setWorking(false);
